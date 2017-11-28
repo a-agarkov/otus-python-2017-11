@@ -1,0 +1,137 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>rbui log analysis report</title>
+  <meta name="description" content="rbui log analysis report">
+  <style type="text/css">
+    html, body {
+      background-color: black;
+    }
+    th {
+      text-align: center;
+      color: silver;
+      font-style: bold;
+      padding: 5px;
+      cursor: pointer;
+    }
+    table {
+      width: auto;
+      border-collapse: collapse;
+      margin: 1%;
+      color: silver;
+    }
+    td {
+      text-align: right;
+      font-size: 1.1em;
+      padding: 5px;
+    }
+    .report-table-body-cell-url {
+      text-align: left;
+      width: 20%;
+    }
+    .clipped {
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow:hidden !important;
+      max-width: 700px;
+      word-wrap: break-word;
+      display:inline-block;
+    }
+    .url {
+      cursor: pointer;
+      color: #729FCF;
+    }
+    .alert {
+      color: red;
+    }
+  </style>
+</head>
+
+<body>
+  <table border="1" class="report-table">
+  <thead>
+    <tr class="report-table-header-row">
+    </tr>
+  </thead>
+  <tbody class="report-table-body">
+  </tbody>
+
+  <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+  <script type="text/javascript" src="jquery.tablesorter.min.js"></script> 
+  <script type="text/javascript">
+  !function($) {
+    var table = [{"url": "/api/v2/slot/4705/groups", "count": 1, "count_perc": 0.1, "time_sum": 0.704, "time_max": 0.704, "time_avg": 0.704, "time_med": 0.704, "time_perc": 0.27446393762183235}, {"url": "/api/v2/group/1769230/banners", "count": 1, "count_perc": 0.1, "time_sum": 0.628, "time_max": 0.628, "time_avg": 0.628, "time_med": 0.628, "time_perc": 0.24483430799220274}, {"url": "/api/v2/banner/25019354", "count": 1, "count_perc": 0.1, "time_sum": 0.39, "time_max": 0.39, "time_avg": 0.39, "time_med": 0.39, "time_perc": 0.152046783625731}, {"url": "/api/v2/banner/16852664", "count": 1, "count_perc": 0.1, "time_sum": 0.199, "time_max": 0.199, "time_avg": 0.199, "time_med": 0.199, "time_perc": 0.07758284600389864}, {"url": "/api/v2/slot/4822/groups", "count": 1, "count_perc": 0.1, "time_sum": 0.157, "time_max": 0.157, "time_avg": 0.157, "time_med": 0.157, "time_perc": 0.061208576998050684}, {"url": "/api/v2/internal/banner/24294027/info", "count": 1, "count_perc": 0.1, "time_sum": 0.146, "time_max": 0.146, "time_avg": 0.146, "time_med": 0.146, "time_perc": 0.05692007797270955}, {"url": "/api/v2/banner/1717161", "count": 1, "count_perc": 0.1, "time_sum": 0.138, "time_max": 0.138, "time_avg": 0.138, "time_med": 0.138, "time_perc": 0.05380116959064328}, {"url": "/api/1/photogenic_banners/list/?server_name=WIN7RB4", "count": 1, "count_perc": 0.1, "time_sum": 0.133, "time_max": 0.133, "time_avg": 0.133, "time_med": 0.133, "time_perc": 0.05185185185185186}, {"url": "/api/v2/group/7786679/statistic/sites/?date_type=day&date_from=2017-06-28&date_to=2017-06-28", "count": 1, "count_perc": 0.1, "time_sum": 0.067, "time_max": 0.067, "time_avg": 0.067, "time_med": 0.067, "time_perc": 0.02612085769980507}, {"url": "/export/appinstall_raw/2017-06-29/", "count": 1, "count_perc": 0.1, "time_sum": 0.003, "time_max": 0.003, "time_avg": 0.003, "time_med": 0.003, "time_perc": 0.0011695906432748538}];
+    var reportDates;
+    var columns = new Array();
+    var lastRow = 150;
+    var $table = $(".report-table-body");
+    var $header = $(".report-table-header-row");
+    var $selector = $(".report-date-selector");
+
+    $(document).ready(function() {
+      $(window).bind("scroll", bindScroll);
+        var row = table[0];
+        for (k in row) {
+          columns.push(k);
+        }
+        columns = columns.sort();
+        columns = columns.slice(columns.length -1, columns.length).concat(columns.slice(0, columns.length -1));
+        drawColumns();
+        drawRows(table.slice(0, lastRow));
+        $(".report-table").tablesorter(); 
+    });
+
+    function drawColumns() {
+      for (var i = 0; i < columns.length; i++) {
+        var $th = $("<th></th>").text(columns[i])
+                                .addClass("report-table-header-cell")
+        $header.append($th);
+      }
+    }
+
+    function drawRows(rows) {
+      for (var i = 0; i < rows.length; i++) {
+        var row = rows[i];
+        var $row = $("<tr></tr>").addClass("report-table-body-row");
+        for (var j = 0; j < columns.length; j++) {
+          var columnName = columns[j];
+          var $cell = $("<td></td>").addClass("report-table-body-cell");
+          if (columnName == "url") {
+            var url = "https://rb.mail.ru" + row[columnName];
+            var $link = $("<a></a>").attr("href", url)
+                                    .attr("title", url)
+                                    .attr("target", "_blank")
+                                    .addClass("clipped")
+                                    .addClass("url")
+                                    .text(row[columnName]);
+            $cell.addClass("report-table-body-cell-url");
+            $cell.append($link);
+          }
+          else {
+            $cell.text(row[columnName]);
+            if (columnName == "time_avg" && row[columnName] > 0.9) {
+              $cell.addClass("alert");
+            }
+          }
+          $row.append($cell);
+        }
+        $table.append($row);
+      }
+      $(".report-table").trigger("update"); 
+    }
+
+    function bindScroll() {
+      if($(window).scrollTop() == $(document).height() - $(window).height()) {
+        if (lastRow < 1000) {
+          drawRows(table.slice(lastRow, lastRow + 50));
+          lastRow += 50;
+        }
+      }
+    }
+
+  }(window.jQuery)
+  </script>
+</body>
+</html>

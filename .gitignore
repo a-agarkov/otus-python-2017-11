@@ -111,3 +111,6 @@ AdvancedBasicsPart_I/otus_hw1_deco/.idea
 AdvancedBasicsPart_I/otus_hw1_log_analyzer/.idea
 AdvancedBasicsPart_I/otus_hw1_poker/.idea
 AdvancedBasicsPart_I/otus_hw1_log_analyzer/log/nginx-access-ui.log-20170630.gz
+AdvancedBasicsPart_I/otus_hw1_log_analyzer/__pycache__
+AdvancedBasicsPart_I/otus_hw1_log_analyzer/tests/__pycache__
+

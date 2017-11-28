@@ -12,7 +12,6 @@ import argparse
 from time import time
 from itertools import groupby
 
-
 utcnow = dt.datetime.utcnow
 
 
