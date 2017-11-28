@@ -40,6 +40,13 @@ And with custom configuration:
 
 `python log_analyzer.py --config "config/log_analyzer.conf"`
 
+### Tests
+A test suite is provided with complete environment (config file, folders, etc.).
+
+To perform tests from `tests` folder in command line run:
+
+`python test_log_analyzer_tests.py`
+
 ### Code author
 Алексей Агарков
 
