@@ -359,4 +359,3 @@ if __name__ == "__main__":
         passed_config_path = None
 
     main(config_path=passed_config_path)
-
