@@ -19,8 +19,12 @@ Arbitrary arguments could be provided within config file, like:
 
 ### Output
 Script produces a report for the latest access log and stores it in `reports` folder. 
+
 Rendered report will have access log's date. Example: `report-2017.06.30.html`.
+
 A `.ts` file with latest execution timestamp would be produced and stored within `monitoring` folder.
+
+Script will check if a report has already been rendered for the latest log and will terminate with due message. 
 
 ### Usage
 1. Copy nginx access log into `log` folder within `log_analyzer.py` working directory. 
