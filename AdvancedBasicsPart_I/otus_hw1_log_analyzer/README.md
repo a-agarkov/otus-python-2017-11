@@ -31,6 +31,15 @@ Script will check if a report has already been rendered for the latest log and w
 2. nginx access log naming should adhere to following convention `nginx-access-ui.log-<%Y%m%d>`.  E.g. `nginx-access-ui.log-20170630.gz`.
 3. The `log_analyzer.py` should be called from command line with or without arguments.
 
+### Run examples
+To run `log_analyzer` with default configuration from command line:
+
+`python log_analyzer.py`
+
+And with custom configuration:
+
+`python log_analyzer.py --config "config/log_analyzer.conf"`
+
 ### Code author
 Алексей Агарков
 
