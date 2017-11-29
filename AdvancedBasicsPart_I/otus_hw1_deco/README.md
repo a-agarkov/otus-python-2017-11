@@ -13,7 +13,7 @@ According to the task, 6 decorators should be developed. See list of decorators 
 * `trace` - traces calls made to function decorated.
 
 ### Tests
-No test suit was written for this task, since initial script already included run scenario.
+No test suite was written for this task, since initial script already included run scenario.
 
 ### Code author
 Алексей Агарков
