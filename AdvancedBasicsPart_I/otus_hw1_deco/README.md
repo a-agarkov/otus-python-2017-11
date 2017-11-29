@@ -9,7 +9,7 @@ According to the task, 6 decorators should've been developed. See list of decora
 * `decorator` - this one allows another decorator to inherit docstrings and stuff from the function it's decorating;
 * `countcalls` - counts calls made to the function decorated;
 * `memo` - allows memoizing calls to a function with a given set of arguments and caching such calls to return values for faster future lookups;
-* `n_ary` - given binary function `f(x, y)`, returns an `n_ary` function such that `f(x, y, z) = f(x, f(y,z))`, etc., allows f(x) = x;
+* `n_ary` - given binary function `f(x, y)`, returns an `n_ary` function such that `f(x, y, z) = f(x, f(y,z))`, etc., allows `f(x) = x`;
 * `trace` - traces calls made to function decorated.
 
 ### Tests
