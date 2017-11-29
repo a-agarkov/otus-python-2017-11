@@ -23,13 +23,21 @@
 # любого ранга.
 
 # Одна функция уже реализована, сигнатуры и описания других даны.
-# Вам наверняка пригодится itertoolsю
+# Вам наверняка пригодится itertools.
 # Можно свободно определять свои функции и т.п.
 # -----------------
 
+from itertools import permutations
 
-def hand_rank(hand: str):
-    """Возвращает значение определяющее ранг 'руки'"""
+
+def hand_rank(hand: str) -> tuple:
+    """
+    Возвращает значение определяющее ранг 'руки'.
+    Returns a rank of a given hand.
+
+    :param hand: a list of 7 cards, like: ['6C', '7C', '8C', '9C', 'TC', '5C', 'JS'].
+    """
+
     ranks = card_ranks(hand)
     if straight(ranks) and flush(hand):
         return (8, max(ranks))
@@ -51,9 +59,13 @@ def hand_rank(hand: str):
         return (0, ranks)
 
 
-def card_ranks(hand: str):
-    """Возвращает список рангов (его числовой эквивалент),
-    отсортированный от большего к меньшему"""
+def card_ranks(hand: str) -> list:
+    """
+    Возвращает список рангов (его числовой эквивалент), отсортированный от большего к меньшему.
+    Returns a list of numerical equivalent of card ranks in a descending order.
+
+    :param hand: a list of 7 cards, like: ['6C', '7C', '8C', '9C', 'TC', '5C', 'JS'].
+    """
 
     # define ranks
     rankables = "23456789TJQKA"
@@ -63,22 +75,34 @@ def card_ranks(hand: str):
     return sorted([ranks[card[0]] for card in hand if card[0] != "?"], reverse=True)
 
 
-def flush(hand: str):
-    """Возвращает True, если все карты одной масти"""
+def flush(hand: str) -> bool:
+    """
+    Возвращает True, если все карты одной масти.
+    Returns True, if all cards share same suit.
+
+    :param hand: a list of 7 cards, like: ['6C', '7C', '8C', '9C', 'TC', '5C', 'JS'].
+    """
 
     # define suits dict
     suits = {suit: 0 for suit in ["C", "S", "H", "D"]}
 
     # count suits in hand
     for card in hand:
-        suits[card[1]] += 1
+        if card[1] not in ['B', 'R']:
+            suits[card[1]] += 1
 
     return 5 in suits.values()
 
 
-def straight(ranks: list):
-    """Возвращает True, если отсортированные ранги формируют последовательность 5ти,
-    где у 5ти карт ранги идут по порядку (стрит)"""
+def straight(ranks: list) -> bool:
+    """
+    Возвращает True, если отсортированные ранги формируют последовательность 5ти,
+    где у 5ти карт ранги идут по порядку (стрит)
+
+    Returns True if sorted ranks make up an increasing sequence of 5 cards, where ranks differ by 1.
+
+    :param ranks: list of ranks, like [10, 10, 8, 6, 5, 1, 1].
+    """
 
     diffs = [abs(ranks[n] - ranks[n - 1])
              for n
@@ -96,9 +120,17 @@ def straight(ranks: list):
     return n == 4
 
 
-def kind(n: int, ranks: list):
-    """Возвращает первый ранг, который n раз встречается в данной руке.
-    Возвращает None, если ничего не найдено"""
+def kind(n: int, ranks: list) -> int or None:
+    """
+    Возвращает первый ранг, который n раз встречается в данной руке.
+    Возвращает None, если ничего не найдено
+
+    Returns first encountered rank, for which there are n cards in a hand.
+    Returns None, if no groups of a kind in a hand.
+
+    :param n: number of rank repetions;
+    :param ranks: list of ranks, like [10, 10, 8, 6, 5, 1, 1].
+    """
 
     # creates a dict of unique keys with counter at zero
     rank_set = {rank: 0 for rank in ranks}
@@ -111,19 +143,49 @@ def kind(n: int, ranks: list):
     return next((k for k, v in rank_set.items() if v == n), None)
 
 
-def two_pair(ranks: list):
-    """Если есть две пары, то возврщает два соответствующих ранга,
-    иначе возвращает None"""
-    return
+def two_pair(ranks: list) -> list or None:
+    """
+    Если есть две пары, то возврщает два соответствующих ранга, иначе возвращает None.
+    Returns two ranks, which have 2 card each, if there are, else returns None.
+
+    :param ranks: List of rankable card ranks, like [10, 10, 8, 6, 5, 1, 1].
+    """
+
+    # inits ranks one and two
+    rank_one = None
+    rank_two = None
+
+    # gets rank for the first pair
+    rank_one = kind(2, ranks)
+
+    # if there's one pair, subsets new rank list from original sans rank_one to look for another pair
+    if rank_one:
+        ranks_sans_ranks_one = [rank for rank in ranks if not rank == rank_one]
+        rank_two = kind(2, ranks_sans_ranks_one)
+
+    return [rank_one, rank_two] if all([rank_one, rank_two]) else None
 
 
-def best_hand(hand: str):
-    """Из "руки" в 7 карт возвращает лучшую "руку" в 5 карт """
-    return list()
+def best_hand(hand: list) -> list:
+    """
+    Из "руки" в 7 карт возвращает лучшую "руку" в 5 карт
+    Returns best 5 card hand out of 7 card hand. Rankables only.
+
+    :param hand: a list of 7 cards, like: ['6C', '7C', '8C', '9C', 'TC', '5C', 'JS'].
+    """
+
+    return max([(possible_hand, hand_rank(possible_hand))
+                for possible_hand in list(permutations(hand, r=5))],
+               key=lambda x: x[1])[0]
 
 
-def best_wild_hand(hand: str):
-    """best_hand но с джокерами"""
+def best_wild_hand(hand: list):
+    """
+    Возвращает best_hand но с джокерами.
+    Returns best_hand, now including jokers.
+
+    :param hand: a list of 7 cards, like: ['6C', '7C', '8C', '9C', 'TC', '5C', 'JS'].
+    """
     return list()
 
 
