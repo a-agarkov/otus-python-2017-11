@@ -1,4 +1,4 @@
-from unittest import TestCase, main
+from unittest import TestCase
 import os
 import datetime as dt
 from log_analyzer import find_latest_log, check_if_report_exists, parse_log, make_report_table, render_html_report
@@ -18,16 +18,16 @@ class TestLogAnalyzer(TestCase):
         # 1. Find latest log if file, named like log, exists in dir.
         self.assertTrue(find_latest_log("./log"))
         # 2. Returns None if there's no file, named like log, in dir.
-        self.assertIsNone(find_latest_log("./reports"))
+        self.assertIsNone(find_latest_log("./tests/reports"))
 
     def test_check_if_report_exists(self):
         # 1. Checks if example report exists.
         self.assertTrue(check_if_report_exists(latest_log='nginx-access-ui.log-20171127',
-                                               report_dir="./reports"))
+                                               report_dir="./tests/reports/"))
 
         # 2. Check that there's no report for non-existant log.
         self.assertFalse(check_if_report_exists(latest_log='nginx-access-ui.log-20171231',
-                                                report_dir="./reports"))
+                                                report_dir="./tests/reports/"))
 
     def test_parse_log(self):
 
@@ -36,8 +36,7 @@ class TestLogAnalyzer(TestCase):
         try:
             access_log = parse_log(log_path=f'{default_config["LOG_DIR"]}/{log_name}',
                                    log_format=default_log_format,
-                                   max_lines=max_lines,
-                                   test=True)
+                                   max_lines=max_lines)
         except Exception as e:
             print(f"Something's wrong: {e}")
             access_log = None
@@ -57,8 +56,7 @@ class TestLogAnalyzer(TestCase):
         max_lines = 10
         access_logs = parse_log(log_path=f'{default_config["LOG_DIR"]}/{log_name}',
                                 log_format=default_log_format,
-                                max_lines=max_lines,
-                                test=True)
+                                max_lines=max_lines)
 
         try:
             report_table = make_report_table(access_logs, report_length=10)
@@ -92,8 +90,7 @@ class TestLogAnalyzer(TestCase):
         max_lines = 10
         access_log = parse_log(log_path=f'{default_config["LOG_DIR"]}/{log_name}',
                                log_format=default_log_format,
-                               max_lines=max_lines,
-                               test=True)
+                               max_lines=max_lines)
 
         report_table = make_report_table(access_log, report_length=10)
 
@@ -110,12 +107,8 @@ class TestLogAnalyzer(TestCase):
             pass
 
         render_result = render_html_report(table=report_table,
-                                           report_path="./reports/",
+                                           report_path="./tests/reports/",
                                            log_name=log_name)
 
         # 1. Checks if report is created.
-        self.assertTrue(f"report-{new_report_date}.html" in os.listdir("./reports/"))
-
-
-if __name__ == '__main__':
-    main()
+        self.assertTrue(f"report-{new_report_date}.html" in os.listdir("./tests/reports/"))

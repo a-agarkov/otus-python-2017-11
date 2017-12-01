@@ -12,133 +12,24 @@ import argparse
 from time import time
 from itertools import groupby
 
-utcnow = dt.datetime.utcnow
+default_config = {"REPORT_SIZE": 1000,
+                  "REPORT_DIR": "./reports",
+                  "LOG_DIR": "./log",
+                  "MONITORING_LOG": './monitoring/log_analyzer.log'}
+
+default_log_format = '$remote_addr $remote_user $http_x_real_ip [$time_local] "$request" $status $body_bytes_sent ' \
+                     '"$http_referer" "$http_user_agent" "$http_x_forwarded_for" "$http_X_REQUEST_ID" ' \
+                     '"$http_X_RB_USER" $request_time'
+
+logging.basicConfig(level=logging.INFO,
+                    format='[%(asctime)s] %(levelname).1s %(message)s',
+                    datefmt='%Y.%m.%d %H:%M:%S',
+                    stream=sys.stdout)
 
 
-def init_logger(logger_name: str,
-                formatter: object) -> object:
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setFormatter(formatter)
-
-    new_logger = logging.getLogger(logger_name)
-    new_logger.addHandler(console_handler)
-    new_logger.setLevel(logging.DEBUG)
-
-    return new_logger
-
-
-def main(config_path=None, logger=None):
-    global default_log_format
-    global default_config
-    global default_logger_formatter
-
-    if not logger:
-        logger = init_logger(logger_name="monitoring_logger", formatter=default_logger_formatter)
-
-    logger.info("Starting log_analyzer")
-
-    # check for config path, passed via --config
-
-    passed_config = None
-    if config_path:
-        logger.info('Got custom config path.')
-        passed_config = read_custom_config(path=config_path)
-        if passed_config == "Required directories are missing.":
-            logger.info(passed_config)
-            passed_config = None
-
-    # get default config if no config passed
-    config = passed_config if passed_config else default_config
-    logger.info(f"Using custom config: {passed_config_path}."
-                if passed_config_path
-                else f"Using default config.")
-
-    if not all((os.path.exists(config[k]) for k in config.keys() if k.endswith('DIR'))):
-        logger.info(f"Some config path is broken.")
-
-        with open(f'{config["TIMESTAMP_DIR"]}/log_analyzer.ts', mode='w') as f:
-            f.write(f'{utcnow().timestamp()}')
-
-        sys.exit(0)
-
-    # check if monitoring_log path is available in config
-    # if monitoring_log path is in config, save to monitoring_log file
-    if "MONITORING_LOG" in config.keys():
-        logger_fh = logging.FileHandler(config["MONITORING_LOG"])
-        logger_fh.setFormatter(default_logger_formatter)
-        logger.addHandler(logger_fh)
-        logger.info(f'Filehandler added successfully. Check logs here: {config["MONITORING_LOG"]}.')
-
-    # find latest access log
-    log_name = find_latest_log(log_dir=config['LOG_DIR'])
-
-    if not log_name:
-        logger.info(f"No logs found in LOG_DIR: {config['LOG_DIR']}")
-
-        with open(f'{config["TIMESTAMP_DIR"]}/log_analyzer.ts', mode='w') as f:
-            f.write(f'{utcnow().timestamp()}')
-
-        sys.exit(0)
-
-    logger.info(f"Latest log found: {log_name}")
-
-    # check if report has already been created for this access log
-    report_exists = check_if_report_exists(latest_log=log_name,
-                                           report_dir=config["REPORT_DIR"])
-
-    if report_exists:
-        logger.info(f"Report for latest logfile {log_name} already exists.")
-
-        with open(f'{config["TIMESTAMP_DIR"]}/log_analyzer.ts', mode='w') as f:
-            f.write(f'{utcnow().timestamp()}')
-
-        return sys.exit(0)
-
-    logger.info(f"No report found for {log_name}.")
-
-    # check if log format available in config
-    log_format = config['LOG_FORMAT'] if 'LOG_FORMAT' in config.keys() else default_log_format
-    logger.info(f"Using custom log format."
-                if 'LOG_FORMAT' in config.keys()
-                else f"No custom log format provided in config. Using default log format.")
-
-    # parse log
-    log_path = f'{config["LOG_DIR"]}/{log_name}'
-    logger.info(f'Commencing access log parsing: {log_path}')
-    parse_start = time()
-    access_logs = parse_log(log_path=log_path,
-                            log_format=log_format,
-                            max_lines=config['REPORT_SIZE'])
-
-    logger.info(f'Access log parsed in {time() - parse_start}')
-
-    # make a report, if no report for this access log
-    logger.info(f"Constructing report table...")
-    report_construction_start = time()
-    report_table = make_report_table(access_logs=access_logs,
-                                     report_length=config['REPORT_SIZE'],
-                                     logger=logger)
-    logger.info(f"Report table constructed successfully in {time() - report_construction_start}.")
-
-    # render html report
-    logger.info(f"Rendering report...")
-    render_result = render_html_report(table=report_table,
-                                       report_path=config['REPORT_DIR'],
-                                       log_name=log_name)
-
-    if render_result:
-        logger.info(f"New report {render_result} successfully rendered.")
-        with open(f'{config["TIMESTAMP_DIR"]}/log_analyzer.ts', mode='w') as f:
-            f.write(f'{utcnow().timestamp()}')
-
-        sys.exit(0)
-
-    else:
-        logger.error(f"Report render failed.")
-        with open(f'{config["TIMESTAMP_DIR"]}/log_analyzer.ts', mode='w') as f:
-            f.write(f'{utcnow().timestamp()}')
-
-        sys.exit(1)
+def log_finish_timestamp( ):
+    with open("./monitoring/log_analyzer.ts", mode='w') as f:
+        f.write(f'{time()}')
 
 
 def find_latest_log(log_dir: str):
@@ -152,8 +43,7 @@ def find_latest_log(log_dir: str):
     log_files = {log_file: os.path.getmtime(f'{log_dir}/{log_file}')
                  for log_file
                  in os.listdir(log_dir)}
-    latest_log = max(log_files.keys(),
-                     key=(lambda key: log_files[key]))
+    latest_log = max(log_files.keys(), key=(lambda key: log_files[key]))
     if not latest_log:
         return None
 
@@ -164,7 +54,7 @@ def read_custom_config(path: str):
     with open(path, mode='r') as f:
         custom_config = json.load(f)
 
-    if all((k in custom_config for k in ("REPORT_SIZE", "REPORT_DIR", "LOG_DIR", "TIMESTAMP_DIR"))):
+    if all((k in custom_config for k in ("REPORT_SIZE", "REPORT_DIR", "LOG_DIR"))):
         return custom_config
     else:
         return "Required directories are missing."
@@ -189,7 +79,7 @@ def check_if_report_exists(latest_log: str, report_dir: str):
     return report_name in os.listdir(report_dir)
 
 
-def parse_log(log_path: str, log_format: str, max_lines: int, test: bool = False) -> list:
+def parse_log(log_path: str, log_format: str, max_lines: int = None) -> list:
     """
     Parses a log file.
 
@@ -201,16 +91,14 @@ def parse_log(log_path: str, log_format: str, max_lines: int, test: bool = False
     :return: log, parsed according to a given format.
     """
 
-    regex = ''.join('(?P<' + g + '>.*?)' if g else re.escape(c)
-                    for g, c in re.findall(r'\$(\w+)|(.)', log_format))
+    regex = ''.join('(?P<' + g + '>.*?)' if g else re.escape(c) for g, c in re.findall(r'\$(\w+)|(.)', log_format))
 
     # define context function to open gzip or plain file
     open_within_context = gzip.GzipFile if log_path.endswith(".gz") else open
 
     with open_within_context(log_path, 'r') as f:
-        if not test:
-            access_logs = (extract_contents_from_log_line(line.decode("utf-8"), regex)
-                           for line in f)
+        if not max_lines:
+            access_logs = (extract_contents_from_log_line(line.decode("utf-8"), regex) for line in f)
 
         else:
             lines = []
@@ -220,8 +108,7 @@ def parse_log(log_path: str, log_format: str, max_lines: int, test: bool = False
                 n += 1
                 if n >= max_lines:
                     break
-            access_logs = (extract_contents_from_log_line(line.decode("utf-8"), regex)
-                           for line in lines)
+            access_logs = (extract_contents_from_log_line(line.decode("utf-8"), regex) for line in lines)
 
         access_logs = list(access_logs)
 
@@ -333,20 +220,13 @@ def render_html_report(table: list,
     return f"report-{new_report_date}.html"
 
 
-if __name__ == "__main__":
+def main(default_config=default_config,
+         default_log_format=default_log_format):
+    logger = logging.getLogger("monitoring_logger")
 
-    default_log_format = f'$remote_addr $remote_user $http_x_real_ip [$time_local] "$request" ' \
-                         f'$status $body_bytes_sent "$http_referer" "$http_user_agent" "$http_x_forwarded_for" ' \
-                         f'"$http_X_REQUEST_ID" "$http_X_RB_USER" $request_time'
+    logger.info("Starting log_analyzer")
 
-    default_config = {"REPORT_SIZE": 1000,
-                      "REPORT_DIR": "./reports",
-                      "LOG_DIR": "./log",
-                      "TIMESTAMP_DIR": "./monitoring",
-                      "MONITORING_LOG": './monitoring/log_analyzer.log'}
-    default_logger_formatter = logging.Formatter('[%(asctime)s] %(levelname).1s %(message)s',
-                                                 datefmt='%Y.%m.%d %H:%M:%S')
-
+    # check for config path, passed via --config
     passed_config_path = None
     parser = argparse.ArgumentParser()
     parser.add_argument('--config')
@@ -354,7 +234,98 @@ if __name__ == "__main__":
         passed_config_path = parser.parse_args().config
 
     except Exception as e:
-        print(f"Something's wrong: {w}")
-        passed_config_path = None
+        logger.info(f"Something's wrong with passed config: {e}")
 
-    main(config_path=passed_config_path)
+    passed_config = None
+
+    if passed_config_path:
+        logger.info('Got custom config path.')
+        passed_config = read_custom_config(path=passed_config_path)
+        if passed_config == "Required directories are missing.":
+            logger.info(passed_config)
+            passed_config = None
+
+    # get default config if no config passed
+    config = passed_config if passed_config else default_config
+    logger.info(f"Using custom config: {passed_config_path}."
+                if passed_config_path
+                else f"Using default config.")
+
+    if not all((os.path.exists(config[k]) for k in config.keys() if k.endswith('DIR'))):
+        logger.info(f"Some config path is broken.")
+
+        log_finish_timestamp()
+
+        sys.exit(0)
+
+    # check if monitoring_log path is available in config
+    # if monitoring_log path is in config, save to monitoring_log file
+    if "MONITORING_LOG" in config.keys():
+        logger_fh = logging.FileHandler(config["MONITORING_LOG"])
+        logger.addHandler(logger_fh)
+        logger.info(f'Filehandler added successfully. Check logs here: {config["MONITORING_LOG"]}.')
+
+    # find latest access log
+    log_name = find_latest_log(log_dir=config['LOG_DIR'])
+
+    if not log_name:
+        logger.info(f"No logs found in LOG_DIR: {config['LOG_DIR']}")
+
+        log_finish_timestamp()
+
+        sys.exit(0)
+
+    logger.info(f"Latest log found: {log_name}")
+
+    # check if report has already been created for this access log
+    report_exists = check_if_report_exists(latest_log=log_name, report_dir=config["REPORT_DIR"])
+
+    if report_exists:
+        logger.info(f"Report for latest logfile {log_name} already exists.")
+
+        log_finish_timestamp()
+
+        return sys.exit(0)
+
+    logger.info(f"No report found for {log_name}.")
+
+    # check if log format available in config
+    log_format = config['LOG_FORMAT'] if 'LOG_FORMAT' in config.keys() else default_log_format
+    logger.info(f"Using custom log format."
+                if 'LOG_FORMAT' in config.keys()
+                else f"No custom log format provided in config. Using default log format.")
+
+    # parse log
+    log_path = f'{config["LOG_DIR"]}/{log_name}'
+    logger.info(f'Commencing access log parsing: {log_path}')
+    parse_start = time()
+    access_logs = parse_log(log_path=log_path, log_format=log_format)
+
+    logger.info(f'Access log parsed in {time() - parse_start}')
+
+    # make a report, if no report for this access log
+    logger.info(f"Constructing report table...")
+    report_construction_start = time()
+    report_table = make_report_table(access_logs=access_logs, report_length=config['REPORT_SIZE'], logger=logger)
+    logger.info(f"Report table constructed successfully in {time() - report_construction_start}.")
+
+    # render html report
+    logger.info(f"Rendering report...")
+    render_result = render_html_report(table=report_table, report_path=config['REPORT_DIR'], log_name=log_name)
+
+    if render_result:
+        logger.info(f"New report {render_result} successfully rendered.")
+        log_finish_timestamp()
+
+        sys.exit(0)
+
+    else:
+        logger.error(f"Report render failed.")
+        log_finish_timestamp()
+
+        sys.exit(1)
+
+
+
+if __name__ == "__main__":
+    main()

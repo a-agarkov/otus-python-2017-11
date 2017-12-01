@@ -43,9 +43,9 @@ And with custom configuration:
 ### Tests
 A test suite is provided with complete environment (config file, folders, etc.).
 
-To perform tests from `tests` folder in command line run:
+To perform tests, run from command line:
 
-`python test_log_analyzer_tests.py`
+`python -m unittest tests/test_log_analyzer_tests.py`
 
 ### Code author
 Алексей Агарков

@@ -39,6 +39,10 @@ A test suite has been written to ensure all cases are covered. At the moment it 
 * `two_pair`;
 * `best_hand`.
 
+In order to run test suite, run from command line:
+
+`python -m unittest tests/test_poker.py`
+
 ### Code author
 Алексей Агарков
 
