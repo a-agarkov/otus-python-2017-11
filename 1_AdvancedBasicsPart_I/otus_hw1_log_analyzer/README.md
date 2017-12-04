@@ -6,15 +6,13 @@ with a subset of n records for urls, which have the highest total request time s
 ### Input
 Script is designed to parse `.gz` and plain logs.
 
-It has one optional argument `--config` for a path to config file. 
-
-The config must have following fields:
+The default config has following fields:
 * `REPORT_SIZE` - size of subset for report;
 * `REPORT_DIR` - path to reportsm rendered by script, a dummy report `report.html` should always stay in that folder; 
-* `LOG_DIR` - path to a folder for nginx access logs;
-* `TIMESTAMP_DIR` - path to a folder, where script writes latest completion timestamp.
+* `LOG_DIR` - path to a folder for nginx access logs.
 
-Arbitrary arguments could be provided within config file, like:
+Script has one optional argument `--config` for a path to a custom config file. 
+Custom config overrides default fields (if included in custom config).  Arbitrary arguments could be provided within custom config file:
 * `MONITORING_LOG` - filepath to script monitoring log output.
 
 ### Output
