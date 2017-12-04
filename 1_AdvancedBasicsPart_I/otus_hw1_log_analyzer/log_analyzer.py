@@ -106,7 +106,10 @@ def parse_config(default_config: dict,
     # check if monitoring_log path is available in config
     # if monitoring_log path is in config, save to monitoring_log file
     if "MONITORING_LOG" in config.keys():
-        logging.root.addHandler(logging.FileHandler(config["MONITORING_LOG"]))
+        formatter = logging.Formatter('[%(asctime)s] %(levelname).1s %(message)s', datefmt='%Y.%m.%d %H:%M:%S')
+        fh = logging.FileHandler(config["MONITORING_LOG"])
+        fh.setFormatter(formatter)
+        logging.root.addHandler(fh)
         logging.info(f'Filehandler added successfully. Check logs here: {config["MONITORING_LOG"]}.')
 
     return config
