@@ -1,10 +1,8 @@
+from collections import namedtuple
 from unittest import TestCase
 import os
 import datetime as dt
-from log_analyzer import find_latest_log, check_if_report_exists, make_report_table, render_html_report, \
-    get_log_date, parse_log
-import gzip
-import re
+from log_analyzer import find_latest_log, check_if_report_exists, make_report_table, render_html_report, parse_log
 import logging
 import sys
 
@@ -26,47 +24,30 @@ logging.basicConfig(level=logging.INFO,
 class TestLogAnalyzer(TestCase):
     def test_find_latest_log(self):
         # 1. Find latest log if file, named like log, exists in dir.
-        self.assertTrue(find_latest_log("./log"))
+        self.assertTrue(find_latest_log("./log").log_name)
         # 2. Returns None if there's no file, named like log, in dir.
-        self.assertIsNone(find_latest_log("./tests/reports"))
+        self.assertIsNone(find_latest_log("./tests/reports").log_name)
 
     def test_check_if_report_exists(self):
         # 1. Checks if example report exists.
-        self.assertTrue(check_if_report_exists(latest_log='nginx-access-ui.log-20171127',
+        latest_log = namedtuple('latest_log', ['log_name', 'log_date'])
+        latest_log.log_date = dt.datetime(2017, 11, 27, 0, 0)
+
+        self.assertTrue(check_if_report_exists(latest_log=latest_log,
                                                report_dir="./tests/reports/"))
 
         # 2. Check that there's no report for non-existant log.
-        self.assertFalse(check_if_report_exists(latest_log='nginx-access-ui.log-20171231',
+        latest_log.log_date = dt.datetime(2017, 12, 31, 0, 0)
+        self.assertFalse(check_if_report_exists(latest_log=latest_log,
                                                 report_dir="./tests/reports/"))
-
-    # def test_parse_log_old(self):
-    #
-    #     log_name = find_latest_log(log_dir=default_config['LOG_DIR'])
-    #     max_lines = 10
-    #     try:
-    #         access_log = parse_log_old(log_path=f'{default_config["LOG_DIR"]}/{log_name}',
-    #                                    log_format=default_log_format,
-    #                                    max_lines=max_lines)
-    #     except Exception as e:
-    #         print(f"Something's wrong: {e}")
-    #         access_log = None
-    #
-    #     # 1. Checks if log is parsed at all.
-    #     self.assertIsNotNone(access_log)
-    #     # 2. Checks if parsed access_log is list.
-    #     self.assertIs(type(access_log), list)
-    #     # 3. Checks if parsed access_log is list of dicts.
-    #     self.assertIs(type(access_log[0]), dict)
-    #     # 4. Checks length of parsed access_log is exactly max_lines (test of test protocol).
-    #     self.assertEqual(len(access_log), max_lines)
 
     def test_parse_log(self):
 
-        log_name = find_latest_log(log_dir=default_config['LOG_DIR'])
+        latest_log = find_latest_log(log_dir=default_config['LOG_DIR'])
         max_lines = 10
 
         try:
-            access_log = parse_log(log_path=f'{default_config["LOG_DIR"]}/{log_name}',
+            access_log = parse_log(log_path=f'{default_config["LOG_DIR"]}/{latest_log.log_name}',
                                    max_lines=max_lines)
         except Exception as e:
             print(f"Something's wrong: {e}")
@@ -83,9 +64,9 @@ class TestLogAnalyzer(TestCase):
 
     def test_make_report_table(self):
 
-        log_name = find_latest_log(log_dir=default_config['LOG_DIR'])
+        latest_log = find_latest_log(log_dir=default_config['LOG_DIR'])
         max_lines = 10
-        access_logs = parse_log(log_path=f'{default_config["LOG_DIR"]}/{log_name}', max_lines=max_lines)
+        access_logs = parse_log(log_path=f'{default_config["LOG_DIR"]}/{latest_log.log_name}', max_lines=max_lines)
 
         try:
             report_table = make_report_table(access_logs, report_length=10)
@@ -115,18 +96,13 @@ class TestLogAnalyzer(TestCase):
         self.assertGreater(20, len(report_length_20))
 
     def test_render_html_report(self):
-        log_name = find_latest_log(log_dir=default_config['LOG_DIR'])
+        latest_log = find_latest_log(log_dir=default_config['LOG_DIR'])
         max_lines = 10
-        access_log = parse_log(log_path=f'{default_config["LOG_DIR"]}/{log_name}', max_lines=max_lines)
+        access_log = parse_log(log_path=f'{default_config["LOG_DIR"]}/{latest_log.log_name}', max_lines=max_lines)
 
         report_table = make_report_table(access_log, report_length=10)
 
-        latest_log_datetime_str = (log_name
-            .replace("nginx-access-ui.log-", "")
-            .replace(".gz", "")
-            .replace(".txt", "")
-            .replace(".log", ""))
-        new_report_date = dt.datetime.strptime(latest_log_datetime_str, "%Y%m%d").strftime("%Y.%m.%d")
+        new_report_date = latest_log.log_date.strftime("%Y.%m.%d")
 
         try:
             os.remove(f"./reports/report-{new_report_date}.html")
@@ -135,7 +111,7 @@ class TestLogAnalyzer(TestCase):
 
         render_result = render_html_report(table=report_table,
                                            report_path="./tests/reports/",
-                                           log_name=log_name)
+                                           latest_log_date=latest_log.log_date)
 
         # 1. Checks if report is created.
         self.assertTrue(f"report-{new_report_date}.html" in os.listdir("./tests/reports/"))
