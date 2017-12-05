@@ -93,7 +93,7 @@ def check_if_report_exists(latest_log, report_dir: str):
     """
     Checks if report for a certain log file already exists.
 
-    :param latest_log: latest log file, according to mtime;
+    :param latest_log: latest log named tuple with log_date;
     :param report_dir: path to reports;
     :return: True if report already exists, False otherwise.
     """
@@ -108,7 +108,6 @@ def parse_log(log_path: str, max_lines: int = None) -> list:
 
     :param log_path: path to log file.
     :param max_lines: maximal number of records to pass, to be used for testing.
-    :param test: True enables test protocol.
 
     :return: log, parsed according to a given format.
     """
