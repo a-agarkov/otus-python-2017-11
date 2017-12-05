@@ -113,6 +113,9 @@ otus-python-0717-master
 1_AdvancedBasicsPart_I/otus_hw1_log_analyzer/log/nginx-access-ui.log-20170630.gz
 1_AdvancedBasicsPart_I/otus_hw1_log_analyzer/__pycache__
 1_AdvancedBasicsPart_I/otus_hw1_log_analyzer/tests/__pycache__
-1_AdvancedBasicsPart_I/otus_hw1_log_analyzer/monitoring
+1_AdvancedBasicsPart_I/otus_hw1_log_analyzer/monitoring/log_analyzer.log
+1_AdvancedBasicsPart_I/otus_hw1_log_analyzer/monitoring/log_analyzer.ts
+1_AdvancedBasicsPart_I/otus_hw1_log_analyzer/tests/monitoring/log_analyzer.log
+1_AdvancedBasicsPart_I/otus_hw1_log_analyzer/tests/monitoring/log_analyzer.ts
 2_Internals/lecture
 2_Internals/interpreter_dirty_hacks.py
