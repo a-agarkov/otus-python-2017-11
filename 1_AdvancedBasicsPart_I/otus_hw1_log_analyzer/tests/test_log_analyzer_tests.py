@@ -1,19 +1,15 @@
+import gzip
 from collections import namedtuple
 from unittest import TestCase
 import os
 import datetime as dt
-from log_analyzer import find_latest_log, check_if_report_exists, make_report_table, render_html_report, parse_log
+from log_analyzer import find_latest_log, check_if_report_exists, make_report_table, render_html_report, parse_log, parse_line
 import logging
 import sys
 
 default_config = {"REPORT_SIZE": 1000,
                   "REPORT_DIR": "./reports",
-                  "LOG_DIR": "./log",
-                  "TIMESTAMP_PATH": "./monitoring/log_analyzer.ts",
-                  "MONITORING_LOG": './monitoring/log_analyzer.log'}
-default_log_format = f'$remote_addr $remote_user $http_x_real_ip [$time_local] "$request" ' \
-                     f'$status $body_bytes_sent "$http_referer" "$http_user_agent" "$http_x_forwarded_for" ' \
-                     f'"$http_X_REQUEST_ID" "$http_X_RB_USER" $request_time'
+                  "LOG_DIR": "./log"}
 
 logging.basicConfig(level=logging.INFO,
                     format='[%(asctime)s] %(levelname).1s %(message)s',
@@ -43,12 +39,10 @@ class TestLogAnalyzer(TestCase):
 
     def test_parse_log(self):
 
-        latest_log = find_latest_log(log_dir=default_config['LOG_DIR'])
-        max_lines = 10
+        latest_log = find_latest_log(log_dir='./tests/log')
 
         try:
-            access_log = parse_log(log_path=f'{default_config["LOG_DIR"]}/{latest_log.log_name}',
-                                   max_lines=max_lines)
+            access_log = parse_log(log_path=f'./tests/log/{latest_log.log_name}')
         except Exception as e:
             print(f"Something's wrong: {e}")
             access_log = None
@@ -59,14 +53,11 @@ class TestLogAnalyzer(TestCase):
         self.assertIs(type(access_log), list)
         # 3. Checks if parsed access_log is list of dicts.
         self.assertIs(type(access_log[0]), dict)
-        # 4. Checks length of parsed access_log is exactly max_lines (test of test protocol).
-        self.assertEqual(len(access_log), max_lines)
 
     def test_make_report_table(self):
 
-        latest_log = find_latest_log(log_dir=default_config['LOG_DIR'])
-        max_lines = 10
-        access_logs = parse_log(log_path=f'{default_config["LOG_DIR"]}/{latest_log.log_name}', max_lines=max_lines)
+        latest_log = find_latest_log(log_dir='./tests/log/')
+        access_logs = parse_log(log_path=f'./tests/log/{latest_log.log_name}')
 
         try:
             report_table = make_report_table(access_logs, report_length=10)
@@ -83,22 +74,9 @@ class TestLogAnalyzer(TestCase):
         # 4. Checks if report table is sorted properly.
         self.assertGreater(report_table[0]['time_sum'], report_table[1]['time_sum'])
 
-        # 5. Checks if report length is less than access log length.
-        report_length_5 = make_report_table(access_logs, report_length=5)
-        self.assertEqual(len(report_length_5), 5)
-
-        # 6. Checks if report length is equal to access log length
-        report_length_10 = make_report_table(access_logs, report_length=10)
-        self.assertEqual(len(report_length_10), 10)
-
-        # 7. Checks if report length is greater than actual access log length
-        report_length_20 = make_report_table(access_logs, report_length=20)
-        self.assertGreater(20, len(report_length_20))
-
     def test_render_html_report(self):
-        latest_log = find_latest_log(log_dir=default_config['LOG_DIR'])
-        max_lines = 10
-        access_log = parse_log(log_path=f'{default_config["LOG_DIR"]}/{latest_log.log_name}', max_lines=max_lines)
+        latest_log = find_latest_log(log_dir='./tests/log/')
+        access_log = parse_log(log_path=f'./tests/log/{latest_log.log_name}')
 
         report_table = make_report_table(access_log, report_length=10)
 
@@ -114,4 +92,4 @@ class TestLogAnalyzer(TestCase):
                                            latest_log_date=latest_log.log_date)
 
         # 1. Checks if report is created.
-        self.assertTrue(f"report-{new_report_date}.html" in os.listdir("./tests/reports/"))
+        self.assertTrue(render_result in os.listdir("./tests/reports/"))

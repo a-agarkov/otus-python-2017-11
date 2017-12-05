@@ -12,6 +12,7 @@ import argparse
 from time import time, sleep
 from itertools import groupby
 from collections import namedtuple
+from string import Template
 
 default_config = {"REPORT_SIZE": 1000,
                   "REPORT_DIR": "./reports",
@@ -50,10 +51,6 @@ def parse_config(default_config: dict,
     return config
 
 
-def get_log_date(log_name):
-    return dt.datetime.strptime(re.findall('\d+', log_name)[0], "%Y%m%d")
-
-
 def find_latest_log(log_dir: str):
     """
     Finds latest logfile in logs directory.
@@ -62,21 +59,16 @@ def find_latest_log(log_dir: str):
     :return: name of the latest log or None if no log found.
 
     """
-    latest_log = namedtuple('latest_log', ['log_name', 'log_date'])
 
-    log_files = {log_file: get_log_date(log_file)
-                 for log_file
-                 in os.listdir(log_dir) if 'nginx-access-ui.log' in log_file}
+    def get_log_date(log_name):
+        return dt.datetime.strptime(re.findall('\d+', log_name)[0], "%Y%m%d")
 
-    if not log_files:
-        latest_log.log_name = None
-        latest_log.log_date = None
-        return latest_log
+    latest_log = max((file for file in os.listdir(log_dir) if 'nginx-access-ui.log' in file),
+                     key=lambda log_name: get_log_date(log_name),
+                     default=None)
 
-    latest_log.log_name = max(log_files.keys(), key=(lambda key: log_files[key]))
-    latest_log.log_date = log_files[latest_log.log_name]
-
-    return latest_log
+    return namedtuple('latest_log', ['log_name', 'log_date'])(
+        latest_log, get_log_date(latest_log) if latest_log else None)
 
 
 def log_finish_timestamp():
@@ -97,12 +89,10 @@ def check_if_report_exists(latest_log, report_dir: str):
     :param report_dir: path to reports;
     :return: True if report already exists, False otherwise.
     """
-
-    report_name = f'report-{latest_log.log_date.strftime("%Y.%m.%d")}.html'
-    return report_name in os.listdir(report_dir)
+    return f'report-{latest_log.log_date.strftime("%Y.%m.%d")}.html' in os.listdir(report_dir)
 
 
-def parse_log(log_path: str, max_lines: int = None) -> list:
+def parse_log(log_path: str) -> list:
     """
     Parses a log file.
 
@@ -112,29 +102,24 @@ def parse_log(log_path: str, max_lines: int = None) -> list:
     :return: log, parsed according to a given format.
     """
 
-    # define context function to open gzip or plain file
-    open_within_context = gzip.GzipFile if log_path.endswith(".gz") else open
+    # # define context function to open gzip or plain file
+    # open_within_context = gzip.GzipFile if log_path.endswith(".gz") else open
+    #
+    # with open_within_context(log_path, 'r') as f:
+    #     access_logs = f.readlines()
+    #
+    # return [parse_line(line.decode("utf-8")) for line in access_logs]
 
-    with open_within_context(log_path, 'r') as f:
-        if not max_lines:
-            access_logs = (extract_contents_from_log_line(line.decode("utf-8")) for line in f)
-
-        else:
-            lines = []
-            n = 0
+    def file_gen(path):
+        open_within_context = gzip.GzipFile if path.endswith(".gz") else open
+        with open_within_context(path, 'r') as f:
             for line in f:
-                lines.append(line)
-                n += 1
-                if n >= max_lines:
-                    break
-            access_logs = (extract_contents_from_log_line(line.decode("utf-8")) for line in lines)
+                yield parse_line(line.decode("utf-8"))
 
-        access_logs = list(access_logs)
-
-    return access_logs
+    return list(file_gen(log_path))
 
 
-def extract_contents_from_log_line(line: str) -> dict:
+def parse_line(line: str) -> dict:
     """
     Parses single record from a log according to log_pattern.
 
@@ -154,7 +139,7 @@ def extract_contents_from_log_line(line: str) -> dict:
     return log_contents
 
 
-def make_report_table(access_logs: list, report_length: int = 1000) -> list:
+def make_report_table(access_logs: list, report_length: int = 1000, error_threshold: float = 0.9) -> list:
     """
     Calculates following statistics for all URLs within access log:
      - count of visits to a URL;
@@ -167,6 +152,8 @@ def make_report_table(access_logs: list, report_length: int = 1000) -> list:
 
     :param access_logs: Parsed access log records.
     :param report_length: Report length.
+    :param error_threshold: Sets parsing error threshold.
+        Raises a warning if percent of urls, parsed correctly, is less than threshold.
     :return: Data to insert into report.
     """
 
@@ -174,6 +161,8 @@ def make_report_table(access_logs: list, report_length: int = 1000) -> list:
     for record in access_logs:
         record['url'] = record['request'][1] if len(record['request']) >= 2 else "-"
         record['request_method'] = record['request'][0] if len(record['request']) >= 2 else "-"
+
+    total_records = len(access_logs)
 
     urls = {record['url']: {"url": record['url'],
                             "count": 0,
@@ -185,7 +174,11 @@ def make_report_table(access_logs: list, report_length: int = 1000) -> list:
                             "time_perc": 0}
             for record in access_logs}
 
+    # Parsing error percent alert.
     total_count = len(access_logs)
+    if total_count / total_records <= error_threshold:
+        logging.warning(f"Only {round(total_count / total_records, 2) * 100}% parsed correctly.")
+
     total_time = sum([float(record['request_time']) for record in access_logs])
 
     logging.info(f'Calculating statistics...')
@@ -220,19 +213,17 @@ def render_html_report(table: list,
 
     """
 
-    report_as_list = []
     with open(f"{report_path}/report.html", mode='r') as f:
-        report_as_list = [line for line in f]
+        report = f.readlines()
 
-    report_as_list[64] = f'    var table = {json.dumps(table)};\n'
+    report[64] = Template(report[64]).substitute(table_json=json.dumps(table))
 
-    new_report_date = latest_log_date.strftime("%Y.%m.%d")
+    new_report_name = f"report-{latest_log_date.strftime('%Y.%m.%d')}.html"
 
-    with open(f"{report_path}/report-{new_report_date}.html", mode='w') as f:
-        for line in report_as_list:
-            f.writelines(str(line))
+    with open(f"{report_path}/{new_report_name}", mode='w') as f:
+        f.writelines(report)
 
-    return f"report-{new_report_date}.html"
+    return new_report_name
 
 
 def main(config: dict = None):
@@ -304,3 +295,4 @@ if __name__ == "__main__":
     logging.info("Starting log_analyzer")
 
     main(config=config)
+
