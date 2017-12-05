@@ -296,14 +296,10 @@ if __name__ == "__main__":
     config = parse_config(default_config=default_config,
                           config_path=argument_parser.parse_args().config)
 
-    log_handlers = [logging.StreamHandler(sys.stdout)]
-    if 'MONITORING_LOG' in config.keys():
-        log_handlers.append(logging.FileHandler(config["MONITORING_LOG"]))
-
     logging.basicConfig(level=logging.INFO,
                         format='[%(asctime)s] %(levelname).1s %(message)s',
                         datefmt='%Y.%m.%d %H:%M:%S',
-                        handlers=log_handlers)
+                        filename=config.get("MONITORING_LOG", None))
 
     logging.info("Starting log_analyzer")
 
