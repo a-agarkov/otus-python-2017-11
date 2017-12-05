@@ -26,7 +26,6 @@ def parse_config(default_config: dict,
     3. Checks, whether any config file was passed in args.
     4. Updates config keys, if it was passed.
     5. Checks whether all dirs in config exist.
-    6. Adds logging filehandler if it exists.
 
     :param default_config: default config file.
     :param config_path: main config file path.
