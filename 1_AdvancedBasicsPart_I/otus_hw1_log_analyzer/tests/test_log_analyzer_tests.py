@@ -3,9 +3,10 @@ from collections import namedtuple
 from unittest import TestCase
 import os
 import datetime as dt
-from log_analyzer import find_latest_log, check_if_report_exists, make_report_table, render_html_report, parse_log, parse_line
+from log_analyzer import find_latest_log, check_if_report_exists, make_report_table, render_html_report, parse_log, parse_config
 import logging
 import sys
+import json
 
 default_config = {"REPORT_SIZE": 1000,
                   "REPORT_DIR": "./reports",
@@ -18,6 +19,31 @@ logging.basicConfig(level=logging.INFO,
 
 
 class TestLogAnalyzer(TestCase):
+    def test_parse_config(self):
+        # 1. Check good config.
+        config = parse_config(default_config=default_config,
+                              config_path='./tests/config/log_analyzer.conf')
+
+        self.assertIsInstance(config, dict)
+
+        # 2. Check broken config path.
+        config = parse_config(default_config=default_config,
+                              config_path='./tests/config/no_log_analyzer_at_all')
+
+        self.assertEqual(config, 'No config at given path.')
+
+        # 3. Check broken config path.
+        config = parse_config(default_config=default_config,
+                              config_path='./tests/config/bad_log_analyzer.conf')
+
+        self.assertEqual(config, 'Some config path is broken.')
+
+        # 4. Check missing default config.
+        config = parse_config(default_config=None,
+                              config_path='./tests/config/bad_log_analyzer.conf')
+
+        self.assertEqual(config, 'No default config provided.')
+
     def test_find_latest_log(self):
         # 1. Find latest log if file, named like log, exists in dir.
         self.assertTrue(find_latest_log("./log").log_name)
@@ -37,12 +63,22 @@ class TestLogAnalyzer(TestCase):
         self.assertFalse(check_if_report_exists(latest_log=latest_log,
                                                 report_dir="./tests/reports/"))
 
-    def test_parse_log(self):
-
-        latest_log = find_latest_log(log_dir='./tests/log')
+    def test_parse_log_gzip(self):
 
         try:
-            access_log = list(parse_log(log_path=f'./tests/log/{latest_log.log_name}'))
+            access_log = list(parse_log(log_path=f'./tests/log/test_nginx-access-ui.log-20170630.gz'))
+        except Exception as e:
+            print(f"Something's wrong: {e}")
+            access_log = list()
+
+        # 1. Checks if log is parsed at all.
+        self.assertTrue(access_log)
+        # 2. Checks if parsed access_log is list of dicts.
+        self.assertIs(type(access_log[0]), dict)
+
+    def test_parse_log_plain(self):
+        try:
+            access_log = list(parse_log(log_path=f'./tests/log/test_nginx-access-ui.log-20170630'))
         except Exception as e:
             print(f"Something's wrong: {e}")
             access_log = list()
@@ -75,8 +111,8 @@ class TestLogAnalyzer(TestCase):
     def test_render_html_report(self):
         latest_log = find_latest_log(log_dir='./tests/log/')
         access_log = parse_log(log_path=f'./tests/log/{latest_log.log_name}')
-
-        report_table = make_report_table(access_log, report_length=10)
+        report_length = 10
+        report_table = make_report_table(access_log, report_length=report_length)
 
         new_report_date = latest_log.log_date.strftime("%Y.%m.%d")
 
@@ -91,3 +127,5 @@ class TestLogAnalyzer(TestCase):
 
         # 1. Checks if report is created.
         self.assertTrue(render_result in os.listdir("./tests/reports/"))
+        # 2. Checks if report has desired length.
+        self.assertEqual(len(report_table), report_length)

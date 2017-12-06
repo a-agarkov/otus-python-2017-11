@@ -13,14 +13,15 @@ from time import time, sleep
 from itertools import groupby
 from collections import namedtuple
 from string import Template
+from functools import partial
 
 default_config = {"REPORT_SIZE": 1000,
                   "REPORT_DIR": "./reports",
                   "LOG_DIR": "./log"}
 
 
-def parse_config(default_config: dict,
-                 config_path: str = None) -> dict:
+def parse_config(default_config: dict = None,
+                 config_path: str = None):
     """
     1. Checks whether main config exists at default path.
     2. Updates default config keys.
@@ -33,20 +34,21 @@ def parse_config(default_config: dict,
     :return: log_analyzer config.
     """
 
+    if not default_config:
+        return "No default config provided."
+
     config = {k: v for k, v in default_config.items()}
 
     if os.path.exists(config_path):
         with open(config_path, mode='r') as f:
             main_config = json.load(f)
     else:
-        logging.info("No config at given path.")
-        sys.exit(1)
+        return "No config at given path."
 
     config.update(main_config)
 
     if not all((os.path.exists(config[k]) for k in config.keys() if k.endswith('DIR'))):
-        logging.info(f"Some config path is broken.")
-        sys.exit(1)
+        return "Some config path is broken."
 
     return config
 
@@ -102,12 +104,10 @@ def parse_log(log_path: str) -> list:
     :return: log, parsed according to a given format.
     """
 
-    is_gz = log_path.endswith(".gz")
-
-    open_within_context = gzip.GzipFile if is_gz else open
-    with open_within_context(log_path, 'r') as f:
+    open_log = partial(gzip.open, mode='rt', encoding="utf-8") if log_path.endswith(".gz") else partial(open, mode='r')
+    with open_log(log_path) as f:
         for line in f:
-            yield parse_line(line.decode("utf-8") if is_gz else line)
+            yield parse_line(line)
 
 
 def parse_line(line: str) -> dict:
@@ -123,9 +123,8 @@ def parse_line(line: str) -> dict:
     request_pat = '"(GET|POST)\s(?P<url>.+?)\sHTTP/.+"\s'
 
     log_contents['request_time'] = re.findall(request_time_pat, line)[0].strip()
-    log_contents['request'] = re.findall(request_pat, line)
-    if log_contents['request']:
-        log_contents['request'] = log_contents['request'][0]
+    request = re.findall(request_pat, line)
+    log_contents['request'] = request[0][1] if request else "parse_failed"
 
     return log_contents
 
@@ -148,51 +147,34 @@ def make_report_table(access_logs: list, report_length: int = 1000, error_thresh
     :return: Data to insert into report.
     """
 
-    logging.info(f'Preparing data for statistics calculation...')
-    access_logs = list(access_logs)
-    total_records = len(access_logs)
+    logging.info('Preparing data for statistics calculation...')
 
-    failed_parse = 0
-    for record in access_logs:
-        if len(record['request']) >= 2:
-            record['request'] = record['request'][1]
-        else:
-            record['request'] = "-"
-            failed_parse += 1
+    urls = {}
+    logging.info('Calculating statistics...')
+    for url, group in groupby(sorted(access_logs, key=lambda x: x['request']), key=lambda x: x['request']):
+        req_times = [float(record['request_time']) for record in group]
+        urls[url] = {"url": url,
+                     'count': len(req_times),
+                     'time_sum': sum(req_times),
+                     'time_max': max(req_times),
+                     'time_med': median(req_times),
+                     'time_avg': mean(req_times)}
 
-    urls = {record['request']: {"url": record['request'],
-                                "count": 0,
-                                "count_perc": 0,
-                                "time_sum": 0,
-                                "time_max": 0,
-                                "time_avg": 0,
-                                "time_med": 0,
-                                "time_perc": 0}
-            for record in access_logs}
-
-    # Parsing error percent alert.
+    total_time = sum([record['time_sum'] for record in urls.values()])
+    total_records = sum([record['count'] for record in urls.values()])
+    failed_parse = urls["parse_failed"]['count'] if "parse_failed" in urls.keys() else 0
 
     if failed_parse / total_records >= error_threshold:
         logging.error(f"Failed to parse {round(failed_parse / total_records, 2) * 100}% records.")
         sys.exit(1)
 
-    total_count = len(urls)
-    total_time = sum([float(record['request_time']) for record in access_logs])
-
-    logging.info(f'Calculating statistics...')
-    for url, group in groupby(sorted(access_logs, key=lambda x: x['request']), key=lambda x: x['request']):
-        req_times = [float(record['request_time']) for record in group]
-        urls[url]['count'] = len(req_times)
-        urls[url]['time_sum'] = sum(req_times)
-        urls[url]['time_max'] = max(req_times)
-        urls[url]['time_med'] = median(req_times)
-        urls[url]['time_avg'] = mean(req_times)
+    for url in urls.keys():
         urls[url]['time_perc'] = urls[url]['time_sum'] / total_time
-        urls[url]['count_perc'] = urls[url]['count'] / total_count
+        urls[url]['count_perc'] = urls[url]['count'] / total_records
 
     report_table = sorted(list(urls.values()), key=lambda k: k['time_sum'], reverse=True)
 
-    return report_table[:min(len(report_table), report_length)]
+    return report_table[:report_length]
 
 
 def render_html_report(table: list,
@@ -246,18 +228,18 @@ def main(config: dict = None):
         logging.info(f"Report for latest logfile {latest_log.log_name} already exists.")
         log_finish_timestamp()
 
-    logging.info(f"No report found for latest_log.")
+    logging.info("No report found for latest_log.")
 
     # parse log
     logging.info(f"Parsing {latest_log.log_name}...")
-    access_logs = list(parse_log(log_path=os.path.join(config["LOG_DIR"], latest_log.log_name)))
+    access_logs = parse_log(log_path=os.path.join(config["LOG_DIR"], latest_log.log_name))
 
     # make a report
     report_table = make_report_table(access_logs=access_logs,
                                      report_length=config['REPORT_SIZE'])
 
     # render html report
-    logging.info(f"Rendering report...")
+    logging.info("Rendering report...")
     render_result = render_html_report(table=report_table,
                                        report_path=config['REPORT_DIR'],
                                        latest_log_date=latest_log.log_date)
@@ -267,7 +249,7 @@ def main(config: dict = None):
         log_finish_timestamp()
 
     else:
-        logging.error(f"Report render failed.")
+        logging.error("Report render failed.")
         sys.exit(1)
 
 
@@ -280,6 +262,10 @@ if __name__ == "__main__":
     config = parse_config(default_config=default_config,
                           config_path=argument_parser.parse_args().config)
 
+    if isinstance(config, str):
+        logging.error(config)
+        sys.exit(1)
+
     logging.basicConfig(level=logging.INFO,
                         format='[%(asctime)s] %(levelname).1s %(message)s',
                         datefmt='%Y.%m.%d %H:%M:%S',
@@ -287,5 +273,7 @@ if __name__ == "__main__":
 
     logging.info("Starting log_analyzer")
 
-    main(config=config)
-
+    try:
+        main(config=config)
+    except Exception as e:
+        logging.error(f'Something is wrong: {e}')
