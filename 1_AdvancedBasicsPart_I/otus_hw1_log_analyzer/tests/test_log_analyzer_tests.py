@@ -21,10 +21,14 @@ logging.basicConfig(level=logging.INFO,
 class TestLogAnalyzer(TestCase):
     def test_parse_config(self):
         # 1. Check good config.
+        good_config_path = './tests/config/log_analyzer.conf'
+        with open(good_config_path, mode='r') as f:
+            passed_config = json.load(f)
         config = parse_config(default_config=default_config,
-                              config_path='./tests/config/log_analyzer.conf')
+                              config_path=good_config_path)
 
         self.assertIsInstance(config, dict)
+        self.assertNotEqual(default_config["REPORT_DIR"], passed_config["REPORT_DIR"])
 
         # 2. Check broken config path.
         config = parse_config(default_config=default_config,
