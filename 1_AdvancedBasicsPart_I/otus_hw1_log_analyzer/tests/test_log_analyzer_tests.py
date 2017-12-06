@@ -42,16 +42,14 @@ class TestLogAnalyzer(TestCase):
         latest_log = find_latest_log(log_dir='./tests/log')
 
         try:
-            access_log = parse_log(log_path=f'./tests/log/{latest_log.log_name}')
+            access_log = list(parse_log(log_path=f'./tests/log/{latest_log.log_name}'))
         except Exception as e:
             print(f"Something's wrong: {e}")
-            access_log = None
+            access_log = list()
 
         # 1. Checks if log is parsed at all.
-        self.assertIsNotNone(access_log)
-        # 2. Checks if parsed access_log is list.
-        self.assertIs(type(access_log), list)
-        # 3. Checks if parsed access_log is list of dicts.
+        self.assertTrue(access_log)
+        # 2. Checks if parsed access_log is list of dicts.
         self.assertIs(type(access_log[0]), dict)
 
     def test_make_report_table(self):
@@ -83,7 +81,7 @@ class TestLogAnalyzer(TestCase):
         new_report_date = latest_log.log_date.strftime("%Y.%m.%d")
 
         try:
-            os.remove(f"./reports/report-{new_report_date}.html")
+            os.remove(f"./tests/reports/report-{new_report_date}.html")
         except OSError:
             pass
 

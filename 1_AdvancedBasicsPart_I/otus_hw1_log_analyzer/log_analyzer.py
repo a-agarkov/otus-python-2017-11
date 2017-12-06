@@ -61,9 +61,9 @@ def find_latest_log(log_dir: str):
     """
 
     def get_log_date(log_name):
-        return dt.datetime.strptime(re.findall('\d+', log_name)[0], "%Y%m%d")
+        return dt.datetime.strptime(re.search('\d+', log_name).group(0), "%Y%m%d")
 
-    latest_log = max((file for file in os.listdir(log_dir) if 'nginx-access-ui.log' in file),
+    latest_log = max((item for item in os.listdir(log_dir) if 'nginx-access-ui.log' in item),
                      key=lambda log_name: get_log_date(log_name),
                      default=None)
 
@@ -89,7 +89,7 @@ def check_if_report_exists(latest_log, report_dir: str):
     :param report_dir: path to reports;
     :return: True if report already exists, False otherwise.
     """
-    return f'report-{latest_log.log_date.strftime("%Y.%m.%d")}.html' in os.listdir(report_dir)
+    return os.path.exists(f'{report_dir}/report-{latest_log.log_date.strftime("%Y.%m.%d")}.html')
 
 
 def parse_log(log_path: str) -> list:
@@ -102,21 +102,12 @@ def parse_log(log_path: str) -> list:
     :return: log, parsed according to a given format.
     """
 
-    # # define context function to open gzip or plain file
-    # open_within_context = gzip.GzipFile if log_path.endswith(".gz") else open
-    #
-    # with open_within_context(log_path, 'r') as f:
-    #     access_logs = f.readlines()
-    #
-    # return [parse_line(line.decode("utf-8")) for line in access_logs]
+    is_gz = log_path.endswith(".gz")
 
-    def file_gen(path):
-        open_within_context = gzip.GzipFile if path.endswith(".gz") else open
-        with open_within_context(path, 'r') as f:
-            for line in f:
-                yield parse_line(line.decode("utf-8"))
-
-    return list(file_gen(log_path))
+    open_within_context = gzip.GzipFile if is_gz else open
+    with open_within_context(log_path, 'r') as f:
+        for line in f:
+            yield parse_line(line.decode("utf-8") if is_gz else line)
 
 
 def parse_line(line: str) -> dict:
@@ -139,7 +130,7 @@ def parse_line(line: str) -> dict:
     return log_contents
 
 
-def make_report_table(access_logs: list, report_length: int = 1000, error_threshold: float = 0.9) -> list:
+def make_report_table(access_logs: list, report_length: int = 1000, error_threshold: float = 0.05) -> list:
     """
     Calculates following statistics for all URLs within access log:
      - count of visits to a URL;
@@ -157,32 +148,39 @@ def make_report_table(access_logs: list, report_length: int = 1000, error_thresh
     :return: Data to insert into report.
     """
 
-    logging.info(f'Getting data ready for statistics calculation...')
-    for record in access_logs:
-        record['url'] = record['request'][1] if len(record['request']) >= 2 else "-"
-        record['request_method'] = record['request'][0] if len(record['request']) >= 2 else "-"
-
+    logging.info(f'Preparing data for statistics calculation...')
+    access_logs = list(access_logs)
     total_records = len(access_logs)
 
-    urls = {record['url']: {"url": record['url'],
-                            "count": 0,
-                            "count_perc": 0,
-                            "time_sum": 0,
-                            "time_max": 0,
-                            "time_avg": 0,
-                            "time_med": 0,
-                            "time_perc": 0}
+    failed_parse = 0
+    for record in access_logs:
+        if len(record['request']) >= 2:
+            record['request'] = record['request'][1]
+        else:
+            record['request'] = "-"
+            failed_parse += 1
+
+    urls = {record['request']: {"url": record['request'],
+                                "count": 0,
+                                "count_perc": 0,
+                                "time_sum": 0,
+                                "time_max": 0,
+                                "time_avg": 0,
+                                "time_med": 0,
+                                "time_perc": 0}
             for record in access_logs}
 
     # Parsing error percent alert.
-    total_count = len(access_logs)
-    if total_count / total_records <= error_threshold:
-        logging.warning(f"Only {round(total_count / total_records, 2) * 100}% parsed correctly.")
 
+    if failed_parse / total_records >= error_threshold:
+        logging.error(f"Failed to parse {round(failed_parse / total_records, 2) * 100}% records.")
+        sys.exit(1)
+
+    total_count = len(urls)
     total_time = sum([float(record['request_time']) for record in access_logs])
 
     logging.info(f'Calculating statistics...')
-    for url, group in groupby(sorted(access_logs, key=lambda x: x['url']), key=lambda x: x['url']):
+    for url, group in groupby(sorted(access_logs, key=lambda x: x['request']), key=lambda x: x['request']):
         req_times = [float(record['request_time']) for record in group]
         urls[url]['count'] = len(req_times)
         urls[url]['time_sum'] = sum(req_times)
@@ -194,10 +192,7 @@ def make_report_table(access_logs: list, report_length: int = 1000, error_thresh
 
     report_table = sorted(list(urls.values()), key=lambda k: k['time_sum'], reverse=True)
 
-    if report_length >= len(report_table):
-        return report_table
-    else:
-        return report_table[:report_length]
+    return report_table[:min(len(report_table), report_length)]
 
 
 def render_html_report(table: list,
@@ -213,15 +208,13 @@ def render_html_report(table: list,
 
     """
 
-    with open(f"{report_path}/report.html", mode='r') as f:
-        report = f.readlines()
-
-    report[64] = Template(report[64]).substitute(table_json=json.dumps(table))
+    with open(os.path.join(report_path, "report.html"), mode='r') as f:
+        report = f.read()
 
     new_report_name = f"report-{latest_log_date.strftime('%Y.%m.%d')}.html"
 
-    with open(f"{report_path}/{new_report_name}", mode='w') as f:
-        f.writelines(report)
+    with open(os.path.join(report_path, new_report_name), mode='w') as f:
+        f.write(Template(report).safe_substitute(table_json=json.dumps(table)))
 
     return new_report_name
 
@@ -243,7 +236,7 @@ def main(config: dict = None):
 
     if not latest_log.log_name:
         logging.info(f"No logs found in LOG_DIR: {config['LOG_DIR']}")
-        sys.exit(1)
+        sys.exit(0)
 
     logging.info(f"Latest log found: {latest_log.log_name}")
 
@@ -253,11 +246,11 @@ def main(config: dict = None):
         logging.info(f"Report for latest logfile {latest_log.log_name} already exists.")
         log_finish_timestamp()
 
-    logging.info(f"No report found for {latest_log.log_name}.")
+    logging.info(f"No report found for latest_log.")
 
     # parse log
     logging.info(f"Parsing {latest_log.log_name}...")
-    access_logs = parse_log(log_path=f'{config["LOG_DIR"]}/{latest_log.log_name}')
+    access_logs = list(parse_log(log_path=os.path.join(config["LOG_DIR"], latest_log.log_name)))
 
     # make a report
     report_table = make_report_table(access_logs=access_logs,
