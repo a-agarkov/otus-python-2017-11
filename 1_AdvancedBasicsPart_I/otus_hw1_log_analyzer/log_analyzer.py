@@ -63,11 +63,14 @@ def find_latest_log(log_dir: str):
     """
 
     def get_log_date(log_name):
-        return dt.datetime.strptime(re.search('\d{4}\d{2}\d{2}', log_name).group(0), "%Y%m%d")
+        log_date = re.search('\d{4}\d{2}\d{2}', log_name)
+        return dt.datetime.strptime(log_date.group(0), "%Y%m%d") if log_date else None
 
     latest_log = max((item for item in os.listdir(log_dir) if 'nginx-access-ui.log' in item),
                      key=lambda log_name: get_log_date(log_name),
                      default=None)
+    if all([latest_log, get_log_date(latest_log)]):
+        return namedtuple('latest_log', ['log_name', 'log_date'])(latest_log, get_log_date(latest_log))
 
     return namedtuple('latest_log', ['log_name', 'log_date'])(
         latest_log, get_log_date(latest_log) if latest_log else None)
@@ -94,12 +97,11 @@ def check_if_report_exists(latest_log, report_dir: str):
     return os.path.exists(f'{report_dir}/report-{latest_log.log_date.strftime("%Y.%m.%d")}.html')
 
 
-def parse_log(log_path: str, parser) -> list:
+def parse_log(log_path: str, parser) -> object:
     """
     Parses a log file.
 
     :param log_path: path to log file.
-    :param max_lines: maximal number of records to pass, to be used for testing.
 
     :return: log, parsed according to a given format.
     """
@@ -129,7 +131,7 @@ def parse_line(line: str) -> dict:
     return log_contents
 
 
-def make_report_table(access_logs: list, report_length: int = 1000, error_threshold: float = 0.05) -> list:
+def make_report_table(access_logs: object, report_length: int = 1000, error_threshold: float = 0.05) -> list:
     """
     Calculates following statistics for all URLs within access log:
      - count of visits to a URL;
@@ -170,6 +172,12 @@ def make_report_table(access_logs: list, report_length: int = 1000, error_thresh
     for url in urls.keys():
         urls[url]['time_perc'] = urls[url]['time_sum'] / total_time
         urls[url]['count_perc'] = urls[url]['count'] / total_records
+
+    # logging.info(
+    #     f"Parsed {failed_parse} bad URLs of {total_records} total URLs,\n"
+    #     f"which is {round(failed_parse / total_records, 5) * 100}%.\n"
+    #     f"Total request time for such requests is {urls['parse_failed']['time_sum']} from total of {total_time}. \n"
+    #     f"Time percentage of such requests to total request time reaches {urls['parse_failed']['time_perc']}.")
 
     report_table = sorted(list(urls.values()), key=lambda k: k['time_sum'], reverse=True)
 
@@ -215,7 +223,7 @@ def main(config: dict = None):
     # find latest access log
     latest_log = find_latest_log(log_dir=config['LOG_DIR'])
 
-    if not latest_log.log_name:
+    if not all([latest_log.log_name, latest_log.log_date]):
         logging.info(f"No logs found in LOG_DIR: {config['LOG_DIR']}")
         sys.exit(0)
 

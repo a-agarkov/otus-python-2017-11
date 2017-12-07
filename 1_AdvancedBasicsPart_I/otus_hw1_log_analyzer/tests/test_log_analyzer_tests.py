@@ -7,6 +7,7 @@ import logging
 import sys
 import json
 import re
+import gzip
 
 default_config = {"REPORT_SIZE": 1000,
                   "REPORT_DIR": "./reports",
@@ -53,6 +54,8 @@ class TestLogAnalyzer(TestCase):
         self.assertTrue(find_latest_log("./log").log_name)
         # 2. Returns None if there's no file, named like log, in dir.
         self.assertIsNone(find_latest_log("./tests/reports").log_name)
+        # 3. Returns None if the file has bad naming for date.
+        self.assertIsNone(find_latest_log("./tests/log/bad_log_name").log_date)
 
     def test_check_if_report_exists(self):
         # 1. Checks if example report exists.
@@ -70,7 +73,7 @@ class TestLogAnalyzer(TestCase):
     def test_parse_log_gzip(self):
 
         try:
-            access_log = list(parse_log(log_path=f'./tests/log/test_nginx-access-ui.log-20170630.gz', parser=parse_line))
+            access_log = list(parse_log(log_path='./tests/log/test_nginx-access-ui.log-20170630.gz', parser=parse_line))
         except Exception as e:
             print(f"Something's wrong: {e}")
             access_log = list()
@@ -82,7 +85,7 @@ class TestLogAnalyzer(TestCase):
 
     def test_parse_log_plain(self):
         try:
-            access_log = list(parse_log(log_path=f'./tests/log/test_nginx-access-ui.log-20170630', parser=parse_line))
+            access_log = list(parse_log(log_path='./tests/log/test_nginx-access-ui.log-20170630', parser=parse_line))
         except Exception as e:
             print(f"Something's wrong: {e}")
             access_log = list()
