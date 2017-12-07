@@ -63,7 +63,7 @@ def find_latest_log(log_dir: str):
     """
 
     def get_log_date(log_name):
-        return dt.datetime.strptime(re.search('\d+', log_name).group(0), "%Y%m%d")
+        return dt.datetime.strptime(re.search('\d{4}\d{2}\d{2}', log_name).group(0), "%Y%m%d")
 
     latest_log = max((item for item in os.listdir(log_dir) if 'nginx-access-ui.log' in item),
                      key=lambda log_name: get_log_date(log_name),
@@ -94,7 +94,7 @@ def check_if_report_exists(latest_log, report_dir: str):
     return os.path.exists(f'{report_dir}/report-{latest_log.log_date.strftime("%Y.%m.%d")}.html')
 
 
-def parse_log(log_path: str) -> list:
+def parse_log(log_path: str, parser) -> list:
     """
     Parses a log file.
 
@@ -107,7 +107,7 @@ def parse_log(log_path: str) -> list:
     open_log = partial(gzip.open, mode='rt', encoding="utf-8") if log_path.endswith(".gz") else partial(open, mode='r')
     with open_log(log_path) as f:
         for line in f:
-            yield parse_line(line)
+            yield parser(line)
 
 
 def parse_line(line: str) -> dict:
@@ -165,8 +165,7 @@ def make_report_table(access_logs: list, report_length: int = 1000, error_thresh
     failed_parse = urls["parse_failed"]['count'] if "parse_failed" in urls.keys() else 0
 
     if failed_parse / total_records >= error_threshold:
-        logging.error(f"Failed to parse {round(failed_parse / total_records, 2) * 100}% records.")
-        sys.exit(1)
+        return f"Failed to parse {round(failed_parse / total_records, 2) * 100}% records."
 
     for url in urls.keys():
         urls[url]['time_perc'] = urls[url]['time_sum'] / total_time
@@ -232,11 +231,15 @@ def main(config: dict = None):
 
     # parse log
     logging.info(f"Parsing {latest_log.log_name}...")
-    access_logs = parse_log(log_path=os.path.join(config["LOG_DIR"], latest_log.log_name))
+    access_logs = parse_log(log_path=os.path.join(config["LOG_DIR"], latest_log.log_name), parser=parse_line)
 
     # make a report
     report_table = make_report_table(access_logs=access_logs,
                                      report_length=config['REPORT_SIZE'])
+
+    if isinstance(report_table, str):
+        logging.error(report_table)
+        sys.exit(1)
 
     # render html report
     logging.info("Rendering report...")

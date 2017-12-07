@@ -1,12 +1,12 @@
-import gzip
 from collections import namedtuple
 from unittest import TestCase
 import os
 import datetime as dt
-from log_analyzer import find_latest_log, check_if_report_exists, make_report_table, render_html_report, parse_log, parse_config
+from log_analyzer import find_latest_log, check_if_report_exists, make_report_table, render_html_report, parse_log, parse_config, parse_line
 import logging
 import sys
 import json
+import re
 
 default_config = {"REPORT_SIZE": 1000,
                   "REPORT_DIR": "./reports",
@@ -70,7 +70,7 @@ class TestLogAnalyzer(TestCase):
     def test_parse_log_gzip(self):
 
         try:
-            access_log = list(parse_log(log_path=f'./tests/log/test_nginx-access-ui.log-20170630.gz'))
+            access_log = list(parse_log(log_path=f'./tests/log/test_nginx-access-ui.log-20170630.gz', parser=parse_line))
         except Exception as e:
             print(f"Something's wrong: {e}")
             access_log = list()
@@ -82,7 +82,7 @@ class TestLogAnalyzer(TestCase):
 
     def test_parse_log_plain(self):
         try:
-            access_log = list(parse_log(log_path=f'./tests/log/test_nginx-access-ui.log-20170630'))
+            access_log = list(parse_log(log_path=f'./tests/log/test_nginx-access-ui.log-20170630', parser=parse_line))
         except Exception as e:
             print(f"Something's wrong: {e}")
             access_log = list()
@@ -95,7 +95,7 @@ class TestLogAnalyzer(TestCase):
     def test_make_report_table(self):
 
         latest_log = find_latest_log(log_dir='./tests/log/')
-        access_logs = parse_log(log_path=f'./tests/log/{latest_log.log_name}')
+        access_logs = parse_log(log_path=f'./tests/log/{latest_log.log_name}', parser=parse_line)
 
         try:
             report_table = make_report_table(access_logs, report_length=10)
@@ -114,7 +114,7 @@ class TestLogAnalyzer(TestCase):
 
     def test_render_html_report(self):
         latest_log = find_latest_log(log_dir='./tests/log/')
-        access_log = parse_log(log_path=f'./tests/log/{latest_log.log_name}')
+        access_log = parse_log(log_path=f'./tests/log/{latest_log.log_name}', parser=parse_line)
         report_length = 10
         report_table = make_report_table(access_log, report_length=report_length)
 
