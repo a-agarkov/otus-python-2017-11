@@ -64,12 +64,8 @@ def find_latest_log(log_dir: str):
     """
 
     def get_log_date(log_name):
-        log_date = re.search('\d{4}\d{2}\d{2}', log_name)
+        log_date = re.search('\d{8}', log_name)
         return dt.datetime.strptime(log_date.group(0), "%Y%m%d") if log_date else None
-
-    # log_dir_contents = (item for item in os.listdir(log_dir) if 'nginx-access-ui.log' in item)
-    # latest_log = max(log_dir_contents, key=lambda log_name: get_log_date(log_name), default=None)
-    # return namedtuple('latest_log', ['log_name', 'log_date'])(latest_log, get_log_date(latest_log))
 
     log_dir_contents = {item: get_log_date(item) for item in os.listdir(log_dir) if 'nginx-access-ui.log' in item}
     latest_log = max(log_dir_contents.items(), key=itemgetter(1), default=None)
@@ -135,7 +131,7 @@ def parse_line(line: str) -> dict:
     return log_contents
 
 
-def make_report_table(access_logs: object, report_length: int = 1000, error_threshold: float = 0.05) -> list:
+def make_report_table(access_logs: object, report_length: int = 1000, error_threshold: float = 0.05):
     """
     Calculates following statistics for all URLs within access log:
      - count of visits to a URL;
@@ -171,7 +167,12 @@ def make_report_table(access_logs: object, report_length: int = 1000, error_thre
     failed_parse = urls["parse_failed"]['count'] if "parse_failed" in urls.keys() else 0
 
     if failed_parse / total_records >= error_threshold:
-        return f"Failed to parse {round(failed_parse / total_records, 2) * 100}% records."
+        logging.error(f"Failed to parse {round(failed_parse / total_records, 2) * 100}% records. " \
+                      f"Check log_analyzer 'parse_log' function.")
+        return None
+    else:
+        logging.info(f"{round(failed_parse / total_records, 3) * 100}% of records parsed as empty strings. "
+                     f"Checking access logger parameters might be appropriate.")
 
     for url in urls.keys():
         urls[url]['time_perc'] = urls[url]['time_sum'] / total_time
@@ -190,9 +191,8 @@ def render_html_report(table: list,
 
     :param table: Data to insert into dummy report.
     :param report_path: Path to dummy 'report.html'.
-    :param latest_log: Name of the logfile, used to make a date for a new report.
+    :param latest_log_date: Latest log date, is used to make name of a new report.
     :return: Returns name of freshly rendered report.
-
     """
 
     with open(os.path.join(report_path, "report.html"), mode='r') as f:
@@ -246,8 +246,8 @@ def main(config: dict = None):
     report_table = make_report_table(access_logs=access_logs,
                                      report_length=config['REPORT_SIZE'])
 
-    if isinstance(report_table, str):
-        logging.error(report_table)
+    if not report_table:
+        logging.info("Report table construction failed.")
         sys.exit(1)
 
     # render html report
