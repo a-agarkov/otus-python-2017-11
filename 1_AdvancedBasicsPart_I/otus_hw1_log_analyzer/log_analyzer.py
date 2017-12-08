@@ -7,6 +7,7 @@ import logging
 import sys
 import datetime as dt
 import os
+from operator import itemgetter
 from statistics import median, mean
 import argparse
 from time import time, sleep
@@ -66,14 +67,17 @@ def find_latest_log(log_dir: str):
         log_date = re.search('\d{4}\d{2}\d{2}', log_name)
         return dt.datetime.strptime(log_date.group(0), "%Y%m%d") if log_date else None
 
-    latest_log = max((item for item in os.listdir(log_dir) if 'nginx-access-ui.log' in item),
-                     key=lambda log_name: get_log_date(log_name),
-                     default=None)
-    if all([latest_log, get_log_date(latest_log)]):
-        return namedtuple('latest_log', ['log_name', 'log_date'])(latest_log, get_log_date(latest_log))
+    # log_dir_contents = (item for item in os.listdir(log_dir) if 'nginx-access-ui.log' in item)
+    # latest_log = max(log_dir_contents, key=lambda log_name: get_log_date(log_name), default=None)
+    # return namedtuple('latest_log', ['log_name', 'log_date'])(latest_log, get_log_date(latest_log))
 
-    return namedtuple('latest_log', ['log_name', 'log_date'])(
-        latest_log, get_log_date(latest_log) if latest_log else None)
+    log_dir_contents = {item: get_log_date(item) for item in os.listdir(log_dir) if 'nginx-access-ui.log' in item}
+    latest_log = max(log_dir_contents.items(), key=itemgetter(1), default=None)
+
+    if not latest_log:
+        latest_log = (None, None)
+
+    return namedtuple('latest_log', ['log_name', 'log_date'])(latest_log[0], latest_log[1])
 
 
 def log_finish_timestamp():
@@ -173,12 +177,6 @@ def make_report_table(access_logs: object, report_length: int = 1000, error_thre
         urls[url]['time_perc'] = urls[url]['time_sum'] / total_time
         urls[url]['count_perc'] = urls[url]['count'] / total_records
 
-    # logging.info(
-    #     f"Parsed {failed_parse} bad URLs of {total_records} total URLs,\n"
-    #     f"which is {round(failed_parse / total_records, 5) * 100}%.\n"
-    #     f"Total request time for such requests is {urls['parse_failed']['time_sum']} from total of {total_time}. \n"
-    #     f"Time percentage of such requests to total request time reaches {urls['parse_failed']['time_perc']}.")
-
     report_table = sorted(list(urls.values()), key=lambda k: k['time_sum'], reverse=True)
 
     return report_table[:report_length]
@@ -201,6 +199,9 @@ def render_html_report(table: list,
         report = f.read()
 
     new_report_name = f"report-{latest_log_date.strftime('%Y.%m.%d')}.html"
+
+    if not os.path.exists(report_path):
+        os.makedirs(report_path)
 
     with open(os.path.join(report_path, new_report_name), mode='w') as f:
         f.write(Template(report).safe_substitute(table_json=json.dumps(table)))
