@@ -67,13 +67,18 @@ def find_latest_log(log_dir: str):
         log_date = re.search('\d{8}', log_name)
         return dt.datetime.strptime(log_date.group(0), "%Y%m%d") if log_date else None
 
-    log_dir_contents = {item: get_log_date(item) for item in os.listdir(log_dir) if 'nginx-access-ui.log' in item}
-    latest_log = max(log_dir_contents.items(), key=itemgetter(1), default=None)
+    log_name = log_date = None
+    for item in os.listdir(log_dir):
+        if 'nginx-access-ui.log' not in item:
+            continue
+        date = get_log_date(item)
 
-    if not latest_log:
-        latest_log = (None, None)
+        if (not log_date) or (date > log_date):
+            log_name, log_date = item, date
 
-    return namedtuple('latest_log', ['log_name', 'log_date'])(latest_log[0], latest_log[1])
+    return namedtuple('latest_log', ['log_name', 'log_date'])._make((log_name, log_date)
+                                                                    if log_name
+                                                                    else (None, None))
 
 
 def log_finish_timestamp():
@@ -107,31 +112,39 @@ def parse_log(log_path: str, parser) -> object:
     """
 
     open_log = partial(gzip.open, mode='rt', encoding="utf-8") if log_path.endswith(".gz") else partial(open, mode='r')
+
     with open_log(log_path) as f:
-        for line in f:
-            yield parser(line)
+        parse_results = [parser(line) for line in f]
+
+    return parse_results
 
 
-def parse_line(line: str) -> dict:
+def parse_line(line: str):
     """
     Parses single record from a log according to log_pattern.
+    If error occurs in parsing request_time, the log line is considered broken and function returns None.
+    If error occurs in parsing URL, while request_time is present,
+        the URL is marked as 'parse_failed' to allow further statistical checking.
 
     :param line: UTF-8 encoded string of a log record.
-    :return: dictionary, made up according to regex_log_pattern.
+    :return: dictionary, made up according to regex_log_pattern or None.
     """
 
     log_contents = {}
     request_time_pat = ' \d*[.]?\d*$'
-    request_pat = '"(GET|POST)\s(?P<url>.+?)\sHTTP/.+"\s'
+    request_pat = '"(GET|HEAD|POST|PUT|DELETE|CONNECT|OPTIONS|TRACE|PATCH)\s(?P<url>.+?)\sHTTP/.+"\s'
 
-    log_contents['request_time'] = re.findall(request_time_pat, line)[0].strip()
+    log_contents['request_time'] = re.search(request_time_pat, line)[0].strip()
     request = re.findall(request_pat, line)
-    log_contents['request'] = request[0][1] if request else "parse_failed"
+    log_contents['request'] = request[0][1] if request else 'bad_request'
 
-    return log_contents
+    if log_contents['request_time']:
+        return log_contents
+    else:
+        return None
 
 
-def make_report_table(access_logs: object, report_length: int = 1000, error_threshold: float = 0.05):
+def make_report_table(access_logs: object, report_length: int = 1000):
     """
     Calculates following statistics for all URLs within access log:
      - count of visits to a URL;
@@ -164,15 +177,6 @@ def make_report_table(access_logs: object, report_length: int = 1000, error_thre
 
     total_time = sum([record['time_sum'] for record in urls.values()])
     total_records = sum([record['count'] for record in urls.values()])
-    failed_parse = urls["parse_failed"]['count'] if "parse_failed" in urls.keys() else 0
-
-    if failed_parse / total_records >= error_threshold:
-        logging.error(f"Failed to parse {round(failed_parse / total_records, 2) * 100}% records. " \
-                      f"Check log_analyzer 'parse_log' function.")
-        return None
-    else:
-        logging.info(f"{round(failed_parse / total_records, 3) * 100}% of records parsed as empty strings. "
-                     f"Checking access logger parameters might be appropriate.")
 
     for url in urls.keys():
         urls[url]['time_perc'] = urls[url]['time_sum'] / total_time
@@ -242,6 +246,10 @@ def main(config: dict = None):
     logging.info(f"Parsing {latest_log.log_name}...")
     access_logs = parse_log(log_path=os.path.join(config["LOG_DIR"], latest_log.log_name), parser=parse_line)
 
+    if not access_logs:
+        logging.info("Log parsing failed.")
+        sys.exit(1)
+
     # make a report
     report_table = make_report_table(access_logs=access_logs,
                                      report_length=config['REPORT_SIZE'])
@@ -289,3 +297,5 @@ if __name__ == "__main__":
         main(config=config)
     except Exception as e:
         logging.error(f'Something is wrong: {e}')
+
+
