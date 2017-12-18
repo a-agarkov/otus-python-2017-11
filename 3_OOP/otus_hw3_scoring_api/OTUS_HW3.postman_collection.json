@@ -1,0 +1,76 @@
+{
+	"info": {
+		"name": "OTUS_HW3",
+		"_postman_id": "82ce7e61-de2f-e4f0-f89f-97241db06d3e",
+		"description": "",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "otus_hw3_score_request",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n\t\"account\": \"horns&hoofs\",\r\n\t\"login\": \"h&f\",\r\n\t\"method\": \"online_score\",\r\n\t\"token\": \"55cc9ce545bcd144300fe9efc28e65d415b923ebb6be1e19d2750a2c03e80dd209a27954dca045e5bb12418e7d89b6d718a9e35af34e14e1d5bcd5a08f21fc95\",\r\n\t\"arguments\": {\r\n\t\t\"phone\": \"77777777777\",\r\n\t\t\"email\": \"stupnikov@otus.ru\",\r\n\t\t\"first_name\": \"Jake\",\r\n\t\t\"last_name\": \"Jackson\",\r\n\t\t\"birthday\": \"01.01.1990\",\r\n\t\t\"gender\": 1}\r\n\t\t}\r\n"
+				},
+				"url": {
+					"raw": "http://127.0.0.1:8080/method/",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8080",
+					"path": [
+						"method",
+						""
+					]
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "otus_hw3_score_request admin",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n\t\"account\": \"admin\",\r\n\t\"login\": \"admin\",\r\n\t\"method\": \"online_score\",\r\n\t\"token\": \"277bc8cde462b36275088d1acbc8c1bbfc90cc5b6a801c2c12943237b3a270bbc37adf24768f1f126afa2e031abef547ab4cecf90823fe8219d1d326b421de0b\",\r\n\t\"arguments\": {\r\n\t\t\"phone\": \"77777777777\",\r\n\t\t\"email\": \"fsdf@sdfs.ru\",\r\n\t\t\"first_name\": \"sdfs\",\r\n\t\t\"last_name\": \"asf\",\r\n\t\t\"birthday\": \"01.01.1990\",\r\n\t\t\"gender\": 1}\r\n\t\t}"
+				},
+				"url": {
+					"raw": "http://127.0.0.1:8080/method/",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8080",
+					"path": [
+						"method",
+						""
+					]
+				},
+				"description": ""
+			},
+			"response": []
+		}
+	]
+}
