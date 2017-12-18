@@ -8,7 +8,7 @@ In order to reach desired method, an API should be requested with POST, with val
 Elaborate Field objects and Request objects in order to reach accomplish the task.
 
 ### API Details
-####Body of a request (JSON-encoded)
+***Body of a request (JSON-encoded)***
 
 ```
 {
@@ -43,7 +43,7 @@ Request is deemed valid, if each request field is valid.
 }
 ```
 
-#### 'online_score' method
+***'online_score' method***
 
 **Arguments:**
 
@@ -77,7 +77,7 @@ in case there was a validation error.
 
 ```{"code": <error code>, "error": "<error message>"}```
 
-## 'clients_interests' method
+***'clients_interests' method***
 
 **Arguments:**
 
