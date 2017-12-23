@@ -102,6 +102,7 @@ Errors produce response:
 
 ### MongoDB integration
 According to further development task, an integration with key-value storage had to be implemented. 
+Such storage should enhance ```store``` class, which caches scoring data and retrieves them upon calling ```get_score``` method.
 MongoDB was chosen as such for its availability and support by developers community.
 In order to initialize connection to local MongoDB based Cache data base the following global variables (```api.py```) are used:
 
@@ -115,7 +116,10 @@ Default expiration term is 60 minutes.
 
 ### Test suite
 
-Test suite features unit tests for all Field and Request objects, as well as tests for method handler, routing and request object processing.
+Test suite features unit tests with different sets of data for all Field and Request objects, as well as tests for method handler, routing and request object processing.
+According to task for Home Work 4 the following goals should be acheived:
+* Develop ```case``` method, which should be used as a test method decorator. ```case``` facilitates testing of the code base with different date sets. 
+* Elaborate on test fixtures. Such may include Data Base initialization and mocking data availability.
 
 To perform tests, run from command line:
 
