@@ -103,7 +103,7 @@ Errors produce response:
 ### MongoDB integration
 According to further development task, an integration with key-value storage had to be implemented. 
 MongoDB was chosen as such for its availability and support by developers community.
-In order to initialize connection to local MongoDB based Cache data base the following global variables are used:
+In order to initialize connection to local MongoDB based Cache data base the following global variables (```api.py```) are used:
 
 * ```CACHE_DB``` - name of cache database;
 * ```SCORE_CACHE_COLLECTION``` - name of collection, which contains score cache;
