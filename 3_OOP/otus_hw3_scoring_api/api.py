@@ -10,7 +10,9 @@ from optparse import OptionParser
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from abc import ABCMeta, abstractmethod
 from scoring import get_score, get_interests
+from pymongo import MongoClient
 
+utcnow = dt.datetime.utcnow
 
 SALT = "Otus"
 ADMIN_LOGIN = "admin"
@@ -36,6 +38,9 @@ GENDERS = {
     MALE: "male",
     FEMALE: "female",
 }
+SCORE_CACHE_DB = 'Otus_HW4_score_cache'
+SCORE_CACHE_COLLECTION = 'score_cache'
+CID_INTERESTS_COLLECTION = 'cid_interests'
 
 
 class BaseRequestField(object):
@@ -177,6 +182,10 @@ class BaseRequest(object, metaclass=MetaRequest):
     Base request class. Validates data upon instatiation of class object.
     """
     def __init__(self, **kwargs):
+        self.validate_init(kwargs)
+        self.validate()
+
+    def validate_init(self, kwargs):
         for key, item in self.fields.items():
             if all([key not in kwargs,
                     item.required]):
@@ -191,8 +200,6 @@ class BaseRequest(object, metaclass=MetaRequest):
                 setattr(self, key, value)
             except Exception as e:
                 raise ValueError(f'Value {value} cannot be set for field "{key}". Error: {e}.')
-
-        self.validate()
 
     def validate(self):
         pass
@@ -245,6 +252,53 @@ class MethodRequest(BaseRequest):
     @property
     def is_admin(self):
         return self.login == ADMIN_LOGIN
+
+
+class ScoreCache:
+    client = MongoClient()
+
+    def __init__(self, db, score_collection, cid_interests_collection):
+        self.db = self.client.__getattr__(f'{db}')
+        self.score_collection = self.db.__getattr__(f'{score_collection}')
+        self.cid_interests_collection = self.db.__getattr__(f'{cid_interests_collection}')
+
+        try:
+            self.score_collection.create_index("expireAt", expireAfterSeconds=0)
+        except:
+            pass
+
+    def cache_get(self, key=None, collection: str = None, target_value_name: str = None):
+        """
+        Get cached value. Reaches desired collection, tries to lookup for a document via provided key
+        and returns certain value from that document.
+
+        :param key: lookup key value;
+        :param collection: 'score_collection', 'cid_interests_collection';
+        :param target_value_name: 'score', 'interests';
+        :return: Value or None.
+        """
+        try:
+            return dict(self.__getattribute__(f'{collection}').find_one({"_id": key}))[target_value_name]
+        except:
+            return None
+
+    def cache_set(self, key, value, expire_after_seconds=None, collection: str = None, target_value_name: str = None):
+        try:
+            if expire_after_seconds:
+                self.__getattribute__(f'{collection}').insert_one({'_id': key,
+                                                                   "expireAt": utcnow() + dt.timedelta(0,
+                                                                                                       expire_after_seconds),
+                                                                   f'{target_value_name}': value})
+            else:
+                self.__getattribute__(f'{collection}').insert_one({'_id': key, f'{target_value_name}': value})
+        except:
+            pass
+
+    # def cache_get_interests(self, cid):
+    #     try:
+    #         return dict(self.cid_collection.find_one({"key": cid}))['interests']
+    #     except:
+    #         return None
 
 
 def check_auth(request: MethodRequest) -> bool:
@@ -335,7 +389,9 @@ class MainHTTPHandler(BaseHTTPRequestHandler):
     Server.
     """
     router = {"method": method_handler}
-    store = None
+    store = ScoreCache(db=SCORE_CACHE_DB,
+                       score_collection=SCORE_CACHE_COLLECTION,
+                       cid_interests_collection=CID_INTERESTS_COLLECTION)
 
     def get_request_id(self, headers):
         return headers.get('HTTP_X_REQUEST_ID', uuid.uuid4().hex)

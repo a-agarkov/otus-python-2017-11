@@ -123,4 +123,9 @@ otus-python-0717-master
 2_Internals/lecture
 2_Internals/interpreter_dirty_hacks.py
 3_OOP/lecture
+3_OOP/lecture/otus_hw3_scoring_api/.idea
+3_OOP/lecture/otus_hw3_scoring_api/.cache
+3_OOP/lecture/otus_hw3_scoring_api/__pycache__
+3_OOP/lecture/otus_hw3_scoring_api/mongo_db_config.txt
 4_Testing/lecture
+5_Automation/lecture
