@@ -38,7 +38,7 @@ GENDERS = {
     MALE: "male",
     FEMALE: "female",
 }
-SCORE_CACHE_DB = 'Otus_HW4_score_cache'
+CACHE_DB = 'Otus_HW4_score_cache'
 SCORE_CACHE_COLLECTION = 'score_cache'
 CID_INTERESTS_COLLECTION = 'cid_interests'
 
@@ -282,7 +282,7 @@ class ScoreCache:
         except:
             return None
 
-    def cache_set(self, key, value, expire_after_seconds=None, collection: str = None, target_value_name: str = None):
+    def cache_set(self, key, value, expire_after_seconds=3600, collection: str = None, target_value_name: str = None):
         try:
             if expire_after_seconds:
                 self.__getattribute__(f'{collection}').insert_one({'_id': key,
@@ -389,7 +389,7 @@ class MainHTTPHandler(BaseHTTPRequestHandler):
     Server.
     """
     router = {"method": method_handler}
-    store = ScoreCache(db=SCORE_CACHE_DB,
+    store = ScoreCache(db=CACHE_DB,
                        score_collection=SCORE_CACHE_COLLECTION,
                        cid_interests_collection=CID_INTERESTS_COLLECTION)
 

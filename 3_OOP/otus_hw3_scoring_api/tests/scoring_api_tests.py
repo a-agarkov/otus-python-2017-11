@@ -47,7 +47,7 @@ class TestSuite(unittest.TestCase):
     def setUp(self):
         self.context = {}
         self.headers = {}
-        self.store = api.ScoreCache(db=api.SCORE_CACHE_DB,
+        self.store = api.ScoreCache(db=api.CACHE_DB,
                                     score_collection=api.SCORE_CACHE_COLLECTION,
                                     cid_interests_collection=api.CID_INTERESTS_COLLECTION)
 
@@ -382,23 +382,23 @@ class TestSuite(unittest.TestCase):
         self.assertEquals(resp, "Forbidden")
         self.assertEquals(code, api.FORBIDDEN)
 
-    # def test_score_cache(self):
-    #     key = 'some key'
-    #     self.store.cache_set(key=key,
-    #                          value=5,
-    #                          expire_after_seconds=3,
-    #                          collection='score_collection',
-    #                          target_value_name='score')
-    #     stored_value = self.store.cache_get(key,
-    #                                         collection='score_collection',
-    #                                         target_value_name='score')
-    #     self.assertIsNotNone(stored_value)
-    #     sleep(60)
-    #     stored_value = self.store.cache_get(key,
-    #                                         collection='score_collection',
-    #                                         target_value_name='score')
-    #     self.assertIsNone(stored_value)
-    #
+    def test_score_cache(self):
+        key = 'some key'
+        self.store.cache_set(key=key,
+                             value=5,
+                             expire_after_seconds=3,
+                             collection='score_collection',
+                             target_value_name='score')
+        stored_value = self.store.cache_get(key,
+                                            collection='score_collection',
+                                            target_value_name='score')
+        self.assertIsNotNone(stored_value)
+        sleep(60)
+        stored_value = self.store.cache_get(key,
+                                            collection='score_collection',
+                                            target_value_name='score')
+        self.assertIsNone(stored_value)
+
 
 if __name__ == "__main__":
     unittest.main()

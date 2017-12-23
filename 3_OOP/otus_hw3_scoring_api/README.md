@@ -100,6 +100,19 @@ Errors produce response:
 
 ```{"code": <error code>, "error": "<error message>"}```
 
+### MongoDB integration
+According to further development task, an integration with key-value storage had to be implemented. 
+MongoDB was chosen as such for its availability and support by developers community.
+In order to initialize connection to local MongoDB based Cache data base the following global variables are used:
+
+* ```CACHE_DB``` - name of cache database;
+* ```SCORE_CACHE_COLLECTION``` - name of collection, which contains score cache;
+* ```CID_INTERESTS_COLLECTION``` - name of collection, which contains clients' interests.
+
+Please note, that score data should expire. 
+Expiration term could be passed to ```expire_after_seconds``` parameter of ```cache_set``` method. 
+Default expiration term is 60 minutes.
+
 ### Test suite
 
 Test suite features unit tests for all Field and Request objects, as well as tests for method handler, routing and request object processing.

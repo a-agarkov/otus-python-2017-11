@@ -1,1 +1,0 @@
-{"username": "score_cache_user", "password": "4321score_cache", "host": "localhost", "port":"27017"}
