@@ -47,7 +47,7 @@ class TestSuite(unittest.TestCase):
     def setUp(self):
         self.context = {}
         self.headers = {}
-        self.store = api.ScoreCache(db=api.CACHE_DB,
+        self.store = api.CacheStore(db=api.CACHE_DB,
                                     score_collection=api.SCORE_CACHE_COLLECTION,
                                     cid_interests_collection=api.CID_INTERESTS_COLLECTION)
 

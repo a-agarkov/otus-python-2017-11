@@ -183,7 +183,7 @@ class BaseRequest(object, metaclass=MetaRequest):
     """
     def __init__(self, **kwargs):
         self.validate_init(kwargs)
-        self.validate()
+        self.validate_arguments()
 
     def validate_init(self, kwargs):
         for key, item in self.fields.items():
@@ -201,7 +201,7 @@ class BaseRequest(object, metaclass=MetaRequest):
             except Exception as e:
                 raise ValueError(f'Value {value} cannot be set for field "{key}". Error: {e}.')
 
-    def validate(self):
+    def validate_arguments(self):
         pass
 
 
@@ -229,7 +229,7 @@ class OnlineScoreRequest(BaseRequest):
     def non_empty_fields(self):
         return {key for key, value in self.__dict__.items() if value}
 
-    def validate(self):
+    def validate_arguments(self):
         if not any(pair.issubset(self.non_empty_fields) for pair in [{"phone", "email"},
                                                                      {"first_name", "last_name"},
                                                                      {"gender", "birthday"}]):
@@ -254,7 +254,7 @@ class MethodRequest(BaseRequest):
         return self.login == ADMIN_LOGIN
 
 
-class ScoreCache:
+class CacheStore:
     client = MongoClient()
 
     def __init__(self, db, score_collection, cid_interests_collection):
@@ -293,12 +293,6 @@ class ScoreCache:
                 self.__getattribute__(f'{collection}').insert_one({'_id': key, f'{target_value_name}': value})
         except:
             pass
-
-    # def cache_get_interests(self, cid):
-    #     try:
-    #         return dict(self.cid_collection.find_one({"key": cid}))['interests']
-    #     except:
-    #         return None
 
 
 def check_auth(request: MethodRequest) -> bool:
@@ -389,7 +383,7 @@ class MainHTTPHandler(BaseHTTPRequestHandler):
     Server.
     """
     router = {"method": method_handler}
-    store = ScoreCache(db=CACHE_DB,
+    store = CacheStore(db=CACHE_DB,
                        score_collection=SCORE_CACHE_COLLECTION,
                        cid_interests_collection=CID_INTERESTS_COLLECTION)
 
