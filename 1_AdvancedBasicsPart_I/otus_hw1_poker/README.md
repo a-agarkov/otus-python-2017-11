@@ -4,7 +4,7 @@ The task was to develop functions, which take poker hand of 7 cards and return b
 
 ### Cards
 Each card has suit and rank.
-* Suits: clubs `C`, spades `S`, червы `H`, diamonds `D`;
+* Suits: clubs `C`, spades `S`, hearts `H`, diamonds `D`;
 * Ranks: 2, 3, 4, 5, 6, 7, 8, 9, 10 ten `T`, jack `J`, queen `Q`, king `K`, ace `A`;
 
 Example: 

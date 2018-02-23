@@ -217,6 +217,12 @@ def best_wild_hand(hand: list):
 
     :param hand: a list of 7 cards, like: ['6C', '7C', '8C', '9C', 'TC', '5C', 'JS'].
     """
+    # todo: elaborate the following best wild hand algo
+    # create a list of all possible values a joker could take minus values present in the hand.
+    # do so for red joker separately and for black joker separately
+    # do so for red joker + black joker if at hand.
+    # make all possible permutations, select best hand and substitute the best fitting card/cards with joker/jokers
+    # return best wild hand
     return list()
 
 

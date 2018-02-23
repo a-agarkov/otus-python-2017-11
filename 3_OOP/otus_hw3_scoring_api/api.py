@@ -57,6 +57,13 @@ class BaseRequestField(object):
         self.required = required
         self.nullable = nullable
 
+    # creates fields
+    def __set__(self, instance, value):
+        field_name = '__' + self.name
+        setattr(instance, field_name, value)
+        # todo: нужно сделать возможность сначала писать в Field данные без предварительной валидации, а затем вызывать валидацию явно.
+        # todo: нужно прописать в validate_init валидацию fields, где нужно итерировать по fields или где оно там находится.
+
     @abstractmethod
     def validate(self, value):
         raise NotImplementedError
@@ -106,9 +113,9 @@ class PhoneField(BaseRequestField):
             raise TypeError('Phone field should be of type "str" or "int".')
         if not str(value).startswith('7'):
             raise ValueError('Only phones, starting with "7", are accepted.')
-        if len(value) != 11:
+        if len(str(value)) != 11:
             raise ValueError('Phone should be 11 digits long.')
-        if not all(digit.isdigit() for digit in value):
+        if not all(digit.isdigit() for digit in str(value)):
             raise ValueError('All elements of the phone number should be digits.')
 
 
@@ -166,12 +173,15 @@ class MetaRequest(type):
     def __new__(cls, name, bases, attrs):
         current_fields = {}
         for key, value in list(attrs.items()):
+            # if passed argument is a field (BaseRequestField)
             if isinstance(value, BaseRequestField):
+                # extracts field names and values from attrs (same as keyword arguments)
                 value.name = key
                 current_fields[key] = value
                 attrs.pop(key)
 
         new_class = super(MetaRequest, cls).__new__(cls, name, bases, attrs)
+
         new_class.fields = current_fields
 
         return new_class
@@ -179,13 +189,14 @@ class MetaRequest(type):
 
 class BaseRequest(object, metaclass=MetaRequest):
     """
-    Base request class. Validates data upon instatiation of class object.
+    Base request class. Validates data upon instantiation of class object.
     """
     def __init__(self, **kwargs):
-        self.validate_init(kwargs)
-        self.validate_arguments()
+        # todo: collect kwargs and place them inside field_collector
+        pass
 
-    def validate_init(self, kwargs):
+    def validate(self, kwargs):
+        # todo: get rid of kwargs and parse field collector to make sure everything is valid
         for key, item in self.fields.items():
             if all([key not in kwargs,
                     item.required]):
@@ -201,9 +212,6 @@ class BaseRequest(object, metaclass=MetaRequest):
             except Exception as e:
                 raise ValueError(f'Value {value} cannot be set for field "{key}". Error: {e}.')
 
-    def validate_arguments(self):
-        pass
-
 
 class ClientsInterestsRequest(BaseRequest):
     """
@@ -211,6 +219,10 @@ class ClientsInterestsRequest(BaseRequest):
     """
     client_ids = ClientIDsField(required=True)
     date = DateField(required=False, nullable=True)
+
+
+osr = ClientsInterestsRequest(client_ids=[1, 2, 3], date='01.12.2017')
+osr.__class__
 
 
 class OnlineScoreRequest(BaseRequest):
@@ -229,7 +241,8 @@ class OnlineScoreRequest(BaseRequest):
     def non_empty_fields(self):
         return {key for key, value in self.__dict__.items() if value}
 
-    def validate_arguments(self):
+    def validate(self, kwargs):
+        super(BaseRequest, self).validate()
         if not any(pair.issubset(self.non_empty_fields) for pair in [{"phone", "email"},
                                                                      {"first_name", "last_name"},
                                                                      {"gender", "birthday"}]):
@@ -330,6 +343,7 @@ def method_handler(request: dict, ctx: dict, store) -> tuple:
 
     try:
         request = MethodRequest(**request.get('body', None))
+        request.validate()
     except Exception as e:
         return f'{e}', INVALID_REQUEST
 

@@ -5,6 +5,7 @@ import unittest
 from hashlib import sha512
 import datetime as dt
 from time import sleep
+from functools import wraps
 
 import api
 from copy import deepcopy
@@ -28,18 +29,32 @@ VALID_USER_VALUE_SET = {'account': 'horns&hoofs',
                                       'phone': '77777777777'}}
 
 
+# def case(data):
+#     def test_decorator(fn):
+#         def repl(self, *args):
+#             for i in data:
+#                 try:
+#                     fn(self, i)
+#                 except AssertionError:
+#                     print(f"Assertion error caught for case: {i}")
+#                     raise
+#
+#         return repl
+#
+#     return test_decorator
+
+
 def case(data):
-    def test_decorator(fn):
-        def repl(self, *args):
+    def test_decorator(func):
+        @wraps(func)
+        def wrapped(self, *args):
             for i in data:
                 try:
-                    fn(self, i)
+                    func(self, i)
                 except AssertionError:
                     print(f"Assertion error caught for case: {i}")
                     raise
-
-        return repl
-
+        return wrapped
     return test_decorator
 
 
@@ -109,17 +124,42 @@ class TestSuite(unittest.TestCase):
         first_name = api.CharField(required=False, nullable=True)
         self.assertFalse(self.validate_value(first_name, value=val))
 
-    @case(["qweq@", "@", "@qweq"])
+    @case(['proper_email@post_office.com', # this one looks like proper e-mail, isn't it?
+           "@", # email field looks only for this symbol, really
+           "teh_email@",
+           "@teh_email",
+           "'-'_@_ cute snail, eh?",
+           "_@_'-' just one more cute snail",
+           '@}}>-----',
+           '@}~}~~~~~ classic rose',
+           '@✈@',
+           '♚ ♛ ♜ ♝ ♞ ♟ ♔ ♕ ♖ ♗ ♘ ♙ @',
+           "@xxxx[{::::::::::::::::::::::::::::::::::> that's a sword"])
     def test_EmailField_pass(self, val):
+        print(val)
         email = api.EmailField(required=False, nullable=True)
         self.assertTrue(self.validate_value(email, val))
 
-    @case(["chocolatey", "chocolatey.at.gmail.com", "chocolatey.at.4124"])
+    @case(["",
+           "chocolatey",
+           "chocolatey.at.gmail.com",
+           "chocolatey.at.4124",
+           'see "The One&Only Legendary Test-Failing Zoo"',
+           '^(⋟﹏⋞)^ - angry kitteh',
+           '龴ↀ◡ↀ龴 - good kitteh',
+           '(. )( .) - big eyes',
+           'ˁ(⦿ᴥ⦿)ˀ - a koala',
+           '¯\_(ツ)_/¯ - whatever',
+           '✈ - simple airplane',
+           '♚ ♛ ♜ ♝ ♞ ♟ ♔ ♕ ♖ ♗ ♘ ♙',
+           '≧◔◡◔≦﻿, - some cute creature',
+           '{இ}ڿڰۣ-ڰۣ~— - not so classic rose'])
     def test_EmailField_fail(self, val):
+        print(val)
         email = api.EmailField(required=False, nullable=True)
         self.assertFalse(self.validate_value(email, val))
 
-    @case(["77777777777"])
+    @case(["77777777777", 71234567890])
     def test_PhoneField_pass(self, val):
         phone = api.PhoneField(required=False, nullable=True)
         self.assertTrue(self.validate_value(phone, val))
@@ -160,12 +200,12 @@ class TestSuite(unittest.TestCase):
         self.assertFalse(self.validate_value(gender, val))
 
     @case([[1, 2, 3], [1]])
-    def test_ClientIDsField(self, val):
+    def test_ClientIDsField_pass(self, val):
         client_ids = api.ClientIDsField(required=True)
         self.assertTrue(self.validate_value(client_ids, val))
 
     @case([[1.2, 3], [1, 2, '3'], []])
-    def test_ClientIDsField(self, val):
+    def test_ClientIDsField_fail(self, val):
         client_ids = api.ClientIDsField(required=True)
         self.assertFalse(self.validate_value(client_ids, val))
 
@@ -186,11 +226,16 @@ class TestSuite(unittest.TestCase):
             self.validate_request_object(api.ClientsInterestsRequest, val))
 
     @case([{'client_ids': [1, 2, 3.15], 'date': '01.02.2002'},
-           {'client_ids': [1, '2', 3], 'date': '01.02.2002'}])
+           {'client_ids': [1, '2', 3], 'date': '01.02.2002'},
+           {'client_ids': None, 'date': '01.02.2002'}])
     def test_ClientsInterestsRequest_fail(self, val):
         # Bad Request
         self.assertFalse(
             self.validate_request_object(api.ClientsInterestsRequest, val))
+
+    def test_nullables(self, val):
+        # add some nullable tests here
+        pass
 
     @case([
         # Proper request: Complete set of arguments
@@ -382,22 +427,22 @@ class TestSuite(unittest.TestCase):
         self.assertEquals(resp, "Forbidden")
         self.assertEquals(code, api.FORBIDDEN)
 
-    def test_score_cache(self):
-        key = 'some key'
-        self.store.cache_set(key=key,
-                             value=5,
-                             expire_after_seconds=3,
-                             collection='score_collection',
-                             target_value_name='score')
-        stored_value = self.store.cache_get(key,
-                                            collection='score_collection',
-                                            target_value_name='score')
-        self.assertIsNotNone(stored_value)
-        sleep(60)
-        stored_value = self.store.cache_get(key,
-                                            collection='score_collection',
-                                            target_value_name='score')
-        self.assertIsNone(stored_value)
+    # def test_score_cache(self):
+    #     key = 'some key'
+    #     self.store.cache_set(key=key,
+    #                          value=5,
+    #                          expire_after_seconds=3,
+    #                          collection='score_collection',
+    #                          target_value_name='score')
+    #     stored_value = self.store.cache_get(key,
+    #                                         collection='score_collection',
+    #                                         target_value_name='score')
+    #     self.assertIsNotNone(stored_value)
+    #     sleep(60)
+    #     stored_value = self.store.cache_get(key,
+    #                                         collection='score_collection',
+    #                                         target_value_name='score')
+    #     self.assertIsNone(stored_value)
 
 
 if __name__ == "__main__":
