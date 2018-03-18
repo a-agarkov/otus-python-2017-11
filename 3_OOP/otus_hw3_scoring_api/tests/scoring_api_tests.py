@@ -29,21 +29,6 @@ VALID_USER_VALUE_SET = {'account': 'horns&hoofs',
                                       'phone': '77777777777'}}
 
 
-# def case(data):
-#     def test_decorator(fn):
-#         def repl(self, *args):
-#             for i in data:
-#                 try:
-#                     fn(self, i)
-#                 except AssertionError:
-#                     print(f"Assertion error caught for case: {i}")
-#                     raise
-#
-#         return repl
-#
-#     return test_decorator
-
-
 def case(data):
     def test_decorator(func):
         @wraps(func)
@@ -90,7 +75,7 @@ class TestSuite(unittest.TestCase):
             return sha512(f'{account}{login}{salt}'.encode()).hexdigest()
 
     @staticmethod
-    def validate_value(field_instance: object, value=None) -> bool:
+    def is_value_valid(field_instance: object, value=None) -> bool:
         try:
             field_instance.validate(value)
             return True
@@ -98,31 +83,32 @@ class TestSuite(unittest.TestCase):
             return False
 
     @staticmethod
-    def validate_request_object(object_class: object, value: dict = {}) -> bool:
+    def is_request_valid(object_class: object, value: dict = {}) -> bool:
         try:
-            object_class(**value)
-            return True
+            req = object_class(**value)
+            req.validate()
+            return True if not req.bad_fields else False
         except Exception:
             return False
 
-    @staticmethod
-    def validate_OnlineScoreRequest(object_class: object, value: dict = {}) -> bool:
-        try:
-            obj = object_class(**value)
-            obj.validate()
-            return True
-        except Exception:
-            return False
+    # @staticmethod
+    # def validate_OnlineScoreRequest(object_class: object, value: dict = {}) -> bool:
+    #     try:
+    #         obj = object_class(**value)
+    #         obj.validate()
+    #         return True
+    #     except Exception:
+    #         return False
 
     @case(['sdfsd', "1231qweq", ''])
     def test_CharField_pass(self, val):
         first_name = api.CharField(required=False, nullable=True)
-        self.assertTrue(self.validate_value(first_name, value=val))
+        self.assertTrue(self.is_value_valid(first_name, value=val))
 
     @case([None])
     def test_CharField_fail(self, val):
         first_name = api.CharField(required=False, nullable=True)
-        self.assertFalse(self.validate_value(first_name, value=val))
+        self.assertFalse(self.is_value_valid(first_name, value=val))
 
     @case(['proper_email@post_office.com', # this one looks like proper e-mail, isn't it?
            "@", # email field looks only for this symbol, really
@@ -138,7 +124,7 @@ class TestSuite(unittest.TestCase):
     def test_EmailField_pass(self, val):
         print(val)
         email = api.EmailField(required=False, nullable=True)
-        self.assertTrue(self.validate_value(email, val))
+        self.assertTrue(self.is_value_valid(email, val))
 
     @case(["",
            "chocolatey",
@@ -157,73 +143,73 @@ class TestSuite(unittest.TestCase):
     def test_EmailField_fail(self, val):
         print(val)
         email = api.EmailField(required=False, nullable=True)
-        self.assertFalse(self.validate_value(email, val))
+        self.assertFalse(self.is_value_valid(email, val))
 
     @case(["77777777777", 71234567890])
     def test_PhoneField_pass(self, val):
         phone = api.PhoneField(required=False, nullable=True)
-        self.assertTrue(self.validate_value(phone, val))
+        self.assertTrue(self.is_value_valid(phone, val))
 
     @case(["dasd", "7dasd", "7dasd3e3qwe"])
     def test_PhoneField_fail(self, val):
         phone = api.PhoneField(required=False, nullable=True)
-        self.assertFalse(self.validate_value(phone, val))
+        self.assertFalse(self.is_value_valid(phone, val))
 
     @case(["01.12.2001", '01.11.1990'])
     def test_DateField_pass(self, val):
         date = api.DateField(required=False, nullable=True)
-        self.assertTrue(self.validate_value(date, val))
+        self.assertTrue(self.is_value_valid(date, val))
 
     @case(["01.12.201", 'fasf', -1])
     def test_DateField_fail(self, val):
         date = api.DateField(required=False, nullable=True)
-        self.assertFalse(self.validate_value(date, val))
+        self.assertFalse(self.is_value_valid(date, val))
 
     @case(["01.12.2001"])
     def test_BirthDayField_pass(self, val):
         birthday = api.BirthDayField(required=False, nullable=True)
-        self.assertTrue(self.validate_value(birthday, val))
+        self.assertTrue(self.is_value_valid(birthday, val))
 
     @case(["01.12.888", "01.12.2100"])
     def test_BirthDayField_fail(self, val):
         birthday = api.BirthDayField(required=False, nullable=True)
-        self.assertFalse(self.validate_value(birthday, val))
+        self.assertFalse(self.is_value_valid(birthday, val))
 
     @case([0, 1, 2])
     def test_GenderField_pass(self, val):
         gender = api.GenderField(required=False, nullable=True)
-        self.assertTrue(self.validate_value(gender, val))
+        self.assertTrue(self.is_value_valid(gender, val))
 
     @case([4, '1'])
     def test_GenderField_fail(self, val):
         gender = api.GenderField(required=False, nullable=True)
-        self.assertFalse(self.validate_value(gender, val))
+        self.assertFalse(self.is_value_valid(gender, val))
 
     @case([[1, 2, 3], [1]])
     def test_ClientIDsField_pass(self, val):
         client_ids = api.ClientIDsField(required=True)
-        self.assertTrue(self.validate_value(client_ids, val))
+        self.assertTrue(self.is_value_valid(client_ids, val))
 
     @case([[1.2, 3], [1, 2, '3'], []])
     def test_ClientIDsField_fail(self, val):
         client_ids = api.ClientIDsField(required=True)
-        self.assertFalse(self.validate_value(client_ids, val))
+        self.assertFalse(self.is_value_valid(client_ids, val))
 
     @case([dict(), {'asd': 123, 'asqq': 'dsa'}])
     def test_ArgumentsField_pass(self, val):
         arguments = api.ArgumentsField(required=True, nullable=True)
-        self.assertTrue(self.validate_value(arguments, val))
+        self.assertTrue(self.is_value_valid(arguments, val))
 
     @case([list(), ''])
     def test_ArgumentsField_fail(self, val):
         arguments = api.ArgumentsField(required=True, nullable=True)
-        self.assertFalse(self.validate_value(arguments, val))
+        self.assertFalse(self.is_value_valid(arguments, val))
 
     @case([{'client_ids': [1, 2, 3], 'date': '01.02.2002'}])
     def test_ClientsInterestsRequest_pass(self, val):
         # Proper Request
         self.assertTrue(
-            self.validate_request_object(api.ClientsInterestsRequest, val))
+            self.is_request_valid(api.ClientsInterestsRequest, val))
 
     @case([{'client_ids': [1, 2, 3.15], 'date': '01.02.2002'},
            {'client_ids': [1, '2', 3], 'date': '01.02.2002'},
@@ -231,11 +217,8 @@ class TestSuite(unittest.TestCase):
     def test_ClientsInterestsRequest_fail(self, val):
         # Bad Request
         self.assertFalse(
-            self.validate_request_object(api.ClientsInterestsRequest, val))
+            self.is_request_valid(api.ClientsInterestsRequest, val))
 
-    def test_nullables(self, val):
-        # add some nullable tests here
-        pass
 
     @case([
         # Proper request: Complete set of arguments
@@ -252,7 +235,10 @@ class TestSuite(unittest.TestCase):
         # Proper request: Gender + Birthday
         dict(birthday="01.02.1990", gender=1)])
     def test_OnlineScoreRequest_pass(self, value_set):
-        self.assertTrue(self.validate_request_object(api.OnlineScoreRequest, value_set))
+        # req = api.OnlineScoreRequest(**value_set)
+        # req.validate()
+        # req.bad_fields
+        self.assertTrue(self.is_request_valid(api.OnlineScoreRequest, value_set))
 
     @case([
         # Bad argument
@@ -267,7 +253,7 @@ class TestSuite(unittest.TestCase):
              email='asda@asda',
              birthday="01.02.1990")])
     def test_OnlineScoreRequest_fail(self, value_set):
-        self.assertFalse(self.validate_request_object(api.OnlineScoreRequest, value_set))
+        self.assertFalse(self.is_request_valid(api.OnlineScoreRequest, value_set))
 
     @case([VALID_USER_VALUE_SET,
            VALID_ADMIN_VALUE_SET])

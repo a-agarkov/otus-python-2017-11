@@ -43,6 +43,10 @@ SCORE_CACHE_COLLECTION = 'score_cache'
 CID_INTERESTS_COLLECTION = 'cid_interests'
 
 
+class ValidationError(Exception):
+    pass
+
+
 class BaseRequestField(object):
     """
     Base class for fields. Defines name and initialization parameters.
@@ -53,16 +57,15 @@ class BaseRequestField(object):
     __metaclass__ = ABCMeta
 
     def __init__(self, required: bool = False, nullable: bool = False):
-        self.name = None
+        # self.name = None
         self.required = required
         self.nullable = nullable
 
-    # creates fields
-    def __set__(self, instance, value):
-        field_name = '__' + self.name
-        setattr(instance, field_name, value)
+    # # updates fields
+    # def __set__(self, instance, value):
+    #     field_name = '__' + self.name
+    #     setattr(instance, field_name, value)
         # todo: нужно сделать возможность сначала писать в Field данные без предварительной валидации, а затем вызывать валидацию явно.
-        # todo: нужно прописать в validate_init валидацию fields, где нужно итерировать по fields или где оно там находится.
 
     @abstractmethod
     def validate(self, value):
@@ -76,7 +79,7 @@ class CharField(BaseRequestField):
 
     def validate(self, value):
         if not isinstance(value, str):
-            raise TypeError('Character field should be of type "str".')
+            raise ValidationError('Character field should be of type "str".')
 
 
 class ArgumentsField(BaseRequestField):
@@ -86,7 +89,7 @@ class ArgumentsField(BaseRequestField):
 
     def validate(self, value):
         if not isinstance(value, dict):
-            raise TypeError('Arguments field should be of type "dict".')
+            raise ValidationError('Arguments field should be of type "dict".')
 
 
 class EmailField(CharField):
@@ -97,7 +100,7 @@ class EmailField(CharField):
     def validate(self, value):
         super(EmailField, self).validate(value)
         if not value.__contains__('@'):
-            raise ValueError('Invalid e-mail.')
+            raise ValidationError('Invalid e-mail.')
 
 
 class PhoneField(BaseRequestField):
@@ -110,13 +113,13 @@ class PhoneField(BaseRequestField):
 
     def validate(self, value):
         if not isinstance(value, (int, str)):
-            raise TypeError('Phone field should be of type "str" or "int".')
+            raise ValidationError('Phone field should be of type "str" or "int".')
         if not str(value).startswith('7'):
-            raise ValueError('Only phones, starting with "7", are accepted.')
+            raise ValidationError('Only phones, starting with "7", are accepted.')
         if len(str(value)) != 11:
-            raise ValueError('Phone should be 11 digits long.')
+            raise ValidationError('Phone should be 11 digits long.')
         if not all(digit.isdigit() for digit in str(value)):
-            raise ValueError('All elements of the phone number should be digits.')
+            raise ValidationError('All elements of the phone number should be digits.')
 
 
 class DateField(CharField):
@@ -126,7 +129,10 @@ class DateField(CharField):
 
     def validate(self, value):
         super(DateField, self).validate(value)
-        dt.datetime.strptime(value, '%d.%m.%Y')
+        try:
+            dt.datetime.strptime(value, '%d.%m.%Y')
+        except:
+            raise ValidationError("Incorrect date format. Date should be a DD.MM.YYYY string.")
 
 
 class BirthDayField(DateField):
@@ -137,8 +143,8 @@ class BirthDayField(DateField):
     def validate(self, value):
         super(BirthDayField, self).validate(value)
         if not (0 < (dt.datetime.now() - dt.datetime.strptime(value, '%d.%m.%Y')).days / 365 <= 70):
-            raise ValueError("A request has gracefully failed in an orderly shutdown process "
-                             "due to age related restrictions.")
+            raise ValidationError("A request has gracefully failed in an orderly shutdown process "
+                                  "due to age related restrictions.")
 
 
 class GenderField(BaseRequestField):
@@ -149,7 +155,7 @@ class GenderField(BaseRequestField):
     def validate(self, value):
         if any([not isinstance(value, int),
                 value not in GENDERS]):
-            raise ValueError('Integer value required. Only 0, 1, 2 allowed.')
+            raise ValidationError('Integer value required. Only 0, 1, 2 allowed.')
 
 
 class ClientIDsField(BaseRequestField):
@@ -159,58 +165,68 @@ class ClientIDsField(BaseRequestField):
 
     def validate(self, value):
         if not isinstance(value, list):
-            raise TypeError('Object of type "list" required.')
+            raise ValidationError('Object of type "list" required.')
         if not all(isinstance(item, int) for item in value):
-            raise TypeError('All elements of a ClientID list should be integers.')
+            raise ValidationError('All elements of a ClientID list should be integers.')
         if not value:
-            raise TypeError('Empty lists not allowed.')
+            raise ValidationError('Empty lists not allowed.')
 
 
 class MetaRequest(type):
     """
     Meta request class, which collects all field classes and moves them into 'fields' attribute.
     """
+
     def __new__(cls, name, bases, attrs):
         current_fields = {}
-        for key, value in list(attrs.items()):
+        for field_name, field in list(attrs.items()):
             # if passed argument is a field (BaseRequestField)
-            if isinstance(value, BaseRequestField):
+            if isinstance(field, BaseRequestField):
                 # extracts field names and values from attrs (same as keyword arguments)
-                value.name = key
-                current_fields[key] = value
-                attrs.pop(key)
+                field.name = field_name
+                current_fields[field_name] = field
+                # pop attributes to ensure all fields are kept only in .fields attr
+                attrs.pop(field_name)
 
         new_class = super(MetaRequest, cls).__new__(cls, name, bases, attrs)
-
         new_class.fields = current_fields
-
         return new_class
 
 
 class BaseRequest(object, metaclass=MetaRequest):
     """
-    Base request class. Validates data upon instantiation of class object.
+    Base request class.
     """
-    def __init__(self, **kwargs):
-        # todo: collect kwargs and place them inside field_collector
-        pass
 
-    def validate(self, kwargs):
-        # todo: get rid of kwargs and parse field collector to make sure everything is valid
-        for key, item in self.fields.items():
-            if all([key not in kwargs,
-                    item.required]):
-                raise ValueError(f'Required field "{key}" is missing.')
+    def __init__(self, **passed_fields):
+        self.bad_fields = {}
+        self.passed_fields_collector = []
 
-            value = kwargs.get(key, None)
+        for field_name, value in passed_fields.items():
+            setattr(self, field_name, value)
+            self.passed_fields_collector.append(field_name)
+
+    def validate(self):
+        for field_name, field in self.fields.items():
+            if all([field_name not in self.passed_fields_collector,
+                    field.required]):
+                self.bad_fields[field_name] = f'Required field {field_name} is missing.'
+                continue
+
+            field_value = getattr(self, field_name, None)
+
+            if not field.nullable and not field_value:
+                self.bad_fields[field_name] = f'Field {field_name} cannot be empty.'
+                continue
+
+            if not field.required and not field_value:
+                continue
 
             try:
-                if not all([key not in kwargs,
-                            item.nullable]):
-                    self.fields[key].validate(value)
-                setattr(self, key, value)
-            except Exception as e:
-                raise ValueError(f'Value {value} cannot be set for field "{key}". Error: {e}.')
+                self.fields[field_name].validate(field_value)
+            except ValidationError as e:
+                self.bad_fields[field_name] = (
+                    f'Value {field_value} cannot be set for field "{field_name}". Error: {e}.')
 
 
 class ClientsInterestsRequest(BaseRequest):
@@ -219,10 +235,6 @@ class ClientsInterestsRequest(BaseRequest):
     """
     client_ids = ClientIDsField(required=True)
     date = DateField(required=False, nullable=True)
-
-
-osr = ClientsInterestsRequest(client_ids=[1, 2, 3], date='01.12.2017')
-osr.__class__
 
 
 class OnlineScoreRequest(BaseRequest):
@@ -241,8 +253,8 @@ class OnlineScoreRequest(BaseRequest):
     def non_empty_fields(self):
         return {key for key, value in self.__dict__.items() if value}
 
-    def validate(self, kwargs):
-        super(BaseRequest, self).validate()
+    def validate(self):
+        super().validate()
         if not any(pair.issubset(self.non_empty_fields) for pair in [{"phone", "email"},
                                                                      {"first_name", "last_name"},
                                                                      {"gender", "birthday"}]):
@@ -346,6 +358,9 @@ def method_handler(request: dict, ctx: dict, store) -> tuple:
         request.validate()
     except Exception as e:
         return f'{e}', INVALID_REQUEST
+
+    if request.bad_fields:
+        return f'{request.bad_fields}', INVALID_REQUEST
 
     if not check_auth(request):
         return "Forbidden", FORBIDDEN
