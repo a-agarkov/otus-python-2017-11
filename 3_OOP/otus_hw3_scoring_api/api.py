@@ -63,7 +63,7 @@ class BaseRequestField(object):
     # def __set__(self, instance, value):
     #     field_name = '__' + self.name
     #     setattr(instance, field_name, value)
-        # todo: нужно сделать возможность сначала писать в Field данные без предварительной валидации, а затем вызывать валидацию явно.
+    # todo: нужно сделать возможность сначала писать в Field данные без предварительной валидации, а затем вызывать валидацию явно.
 
     @abstractmethod
     def validate(self, value):

@@ -136,3 +136,5 @@ otus-python-0717-master
 09_REST_API/lecture
 14_asyncio/lecture
 15_Golang/lecture
+3_OOP/otus_hw3_scoring_api/tests/.pytest_cache
+16_Profiling/lecture

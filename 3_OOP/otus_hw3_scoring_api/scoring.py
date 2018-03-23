@@ -42,7 +42,5 @@ def get_score(store, phone, email, birthday=None, gender=None, first_name=None, 
 
 
 def get_interests(store, cid):
-    r = store.cache_get(key="i:%s" % cid,
-                        collection='cid_interests_collection',
-                        target_value_name='interests')
+    r = store.get("i:%s" % cid)
     return json.loads(r) if r else []

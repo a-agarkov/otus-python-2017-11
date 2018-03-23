@@ -41,18 +41,16 @@ score_request = api.OnlineScoreRequest(**full_set_of_arguments)
 
 
 def case(data):
-    def test_decorator(func):
-        @wraps(func)
-        def wrapped(self, *args):
-            for i in data:
-                try:
-                    func(self, i)
-                except AssertionError:
-                    print(f"Assertion error caught for case: {i}")
-                    raise
-        return wrapped
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args):
+            for c in data:
+                new_args = args + (c if isinstance(c, tuple) else (c,))
+                f(*new_args)
 
-    return test_decorator
+        return wrapper
+
+    return decorator
 
 
 def make_token(admin: bool = False,
@@ -391,7 +389,7 @@ class TestMethodHandler(unittest.TestCase):
          'instance': str,
          'code': api.FORBIDDEN,
          'details': "Forbidden"}
-           ])
+    ])
     def test_method_handler(self, case_data):
         resp, code = api.method_handler({"body": {**case_data['body']} if case_data['body'] else {},
                                          "headers": dict()}, dict(), store=self.store)
@@ -462,43 +460,41 @@ class TestMethodHandler(unittest.TestCase):
         self.assertEquals(code, api.INVALID_REQUEST)
         self.assertIsInstance(bad_score, str)
 
-#
-# class TestStore(unittest.TestCase):
-#     def setUp(self):
-#         self.context = {}
-#         self.headers = {}
-#         self.store = store.CacheStore(db=store.CACHE_DB,
-#                                       score_collection=store.SCORE_CACHE_COLLECTION,
-#                                       cid_interests_collection=store.CID_INTERESTS_COLLECTION)
-#
-#         cids = ["i:%s" % i for i in range(1, 4)]
-#         cids_in_db = [item['_id'] for item in self.store.cid_interests_collection.find()]
-#
-#         if not all(cid in cids_in_db for cid in cids):
-#             interests = ["cars", "pets", "travel", "hi-tech", "sport", "music", "books", "tv", "cinema", "geek",
-#                          "otus"]
-#             self.store.cid_interests_collection.insert_many([{'_id': i,
-#                                                               'interests': json.dumps(random.sample(interests, 2))}
-#                                                              for i in cids])
-#
-#     def test_score_cache(self):
-#         key = 'some key'
-#         self.store.cache_set(key=key,
-#                              value=5,
-#                              expire_after_seconds=3,
-#                              collection='score_collection',
-#                              target_value_name='score')
-#         stored_value = self.store.cache_get(key,
-#                                             collection='score_collection',
-#                                             target_value_name='score')
-#         self.assertIsNotNone(stored_value)
-#         sleep(60)
-#         stored_value = self.store.cache_get(key,
-#                                             collection='score_collection',
-#                                             target_value_name='score')
-#         self.assertIsNone(stored_value)
 
+class TestStore(unittest.TestCase):
+    def setUp(self):
+        self.context = {}
+        self.headers = {}
+        self.store = store.CacheStore(db=store.CACHE_DB,
+                                      score_collection=store.SCORE_CACHE_COLLECTION,
+                                      cid_interests_collection=store.CID_INTERESTS_COLLECTION)
 
+        cids = ["i:%s" % i for i in range(1, 4)]
+        cids_in_db = [item['_id'] for item in self.store.cid_interests_collection.find()]
+
+        if not all(cid in cids_in_db for cid in cids):
+            interests = ["cars", "pets", "travel", "hi-tech", "sport", "music", "books", "tv", "cinema", "geek",
+                         "otus"]
+            self.store.cid_interests_collection.insert_many([{'_id': i,
+                                                              'interests': json.dumps(random.sample(interests, 2))}
+                                                             for i in cids])
+
+    def test_score_cache(self):
+        key = 'some key'
+        self.store.cache_set(key=key,
+                             value=5,
+                             expire_after_seconds=3,
+                             collection='score_collection',
+                             target_value_name='score')
+        stored_value = self.store.cache_get(key,
+                                            collection='score_collection',
+                                            target_value_name='score')
+        self.assertIsNotNone(stored_value)
+        sleep(60)
+        stored_value = self.store.cache_get(key,
+                                            collection='score_collection',
+                                            target_value_name='score')
+        self.assertIsNone(stored_value)
 
 
 if __name__ == "__main__":
