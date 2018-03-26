@@ -35,6 +35,13 @@ class CacheStore:
         try:
             return dict(getattr(self, f'{collection}').find_one({"_id": key}))[target_value_name]
         except ConnectionFailure:
+            n = 0
+            result = None
+            while not result or n == 5:
+                result = dict(getattr(self, f'{collection}').find_one({"_id": key}))[target_value_name]
+                n += 1
+            return result
+        except TypeError:
             return None
 
     def cache_set(self, key, value, expire_after_seconds=3600, collection: str = None, target_value_name: str = None):
