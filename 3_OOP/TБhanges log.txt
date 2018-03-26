@@ -1,5 +1,0 @@
-28-01-2017:
-Refactored validate_init and validate_arguments into just validate in order 
-to call validate explicitly from flow.
-Still have to change BaseRequest validate signature to get rid of kwargs 
-and put not yet validated values into separate holder.

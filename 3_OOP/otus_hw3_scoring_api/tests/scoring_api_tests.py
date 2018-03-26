@@ -7,6 +7,8 @@ import datetime as dt
 from time import sleep
 from functools import wraps
 
+from pymongo import MongoClient
+
 import api
 from copy import deepcopy
 
@@ -479,17 +481,51 @@ class TestStore(unittest.TestCase):
                                                               'interests': json.dumps(random.sample(interests, 2))}
                                                              for i in cids])
 
-    def test_score_cache(self):
-        key = 'some key'
+    def test_connection(self):
+        connection = None
+        try:
+            connection = self.store.client.server_info()
+        except:
+            pass
+
+        self.assertIsNotNone(connection)
+
+    def test_save_and_get_value(self):
+        key = 'some key 1'
         self.store.cache_set(key=key,
                              value=5,
-                             expire_after_seconds=3,
                              collection='score_collection',
                              target_value_name='score')
         stored_value = self.store.cache_get(key,
                                             collection='score_collection',
                                             target_value_name='score')
         self.assertIsNotNone(stored_value)
+
+    def test_disconnect_behavior(self):
+        key = 'some key 1'
+        self.store.cache_set(key=key,
+                             value=5,
+                             collection='score_collection',
+                             target_value_name='score')
+
+        # http://api.mongodb.com/python/current/api/pymongo/mongo_client.html#pymongo.mongo_client.MongoClient.close
+        # Close all sockets in the connection pools and stop the monitor threads.
+        # If this instance is used again it will be automatically re-opened and the threads restarted.
+        self.store.client.close()
+
+        stored_value = None
+        stored_value = self.store.cache_get(key,
+                                            collection='score_collection',
+                                            target_value_name='score')
+        self.assertIsNotNone(stored_value)
+
+    def test_timeout_cache(self):
+        key = 'some key'
+        self.store.cache_set(key=key,
+                             value=5,
+                             expire_after_seconds=3,
+                             collection='score_collection',
+                             target_value_name='score')
         sleep(60)
         stored_value = self.store.cache_get(key,
                                             collection='score_collection',

@@ -1,5 +1,6 @@
 import datetime as dt
 from pymongo import MongoClient
+from pymongo.errors import ConnectionFailure, DuplicateKeyError
 
 utcnow = dt.datetime.utcnow
 
@@ -9,7 +10,7 @@ CID_INTERESTS_COLLECTION = 'cid_interests'
 
 
 class CacheStore:
-    client = MongoClient()
+    client = MongoClient(socketTimeoutMS=5000, connectTimeoutMS=10000)
 
     def __init__(self, db, score_collection, cid_interests_collection):
         self.db = getattr(self.client, f'{db}')
@@ -18,7 +19,7 @@ class CacheStore:
 
         try:
             self.score_collection.create_index("expireAt", expireAfterSeconds=0)
-        except:
+        except ConnectionFailure:
             pass
 
     def cache_get(self, key=None, collection: str = None, target_value_name: str = None):
@@ -33,7 +34,7 @@ class CacheStore:
         """
         try:
             return dict(getattr(self, f'{collection}').find_one({"_id": key}))[target_value_name]
-        except Exception:
+        except ConnectionFailure:
             return None
 
     def cache_set(self, key, value, expire_after_seconds=3600, collection: str = None, target_value_name: str = None):
@@ -45,7 +46,9 @@ class CacheStore:
                                                            f'{target_value_name}': value})
             else:
                 getattr(self, f'{collection}').insert_one({'_id': key, f'{target_value_name}': value})
-        except:
+        except ConnectionFailure:
+            pass
+        except DuplicateKeyError:
             pass
 
     def get(self, key):
